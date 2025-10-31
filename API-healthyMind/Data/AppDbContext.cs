@@ -35,7 +35,7 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<Diario> Diarios { get; set; }
 
-    public virtual DbSet<Emocione> Emociones { get; set; }
+    public virtual DbSet<Emociones> Emociones { get; set; }
 
     public virtual DbSet<EstadoAprendiz> EstadoAprendizs { get; set; }
 
@@ -436,7 +436,7 @@ public partial class AppDbContext : DbContext
                 .HasConstraintName("diario_ibfk_1");
         });
 
-        modelBuilder.Entity<Emocione>(entity =>
+        modelBuilder.Entity<Emociones>(entity =>
         {
             entity.HasKey(e => e.EmoCodigo).HasName("PRIMARY");
 

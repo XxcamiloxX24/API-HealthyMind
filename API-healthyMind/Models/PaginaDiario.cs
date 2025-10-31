@@ -21,5 +21,5 @@ public partial class PaginaDiario
 
     public virtual Diario? PagDiarioFkNavigation { get; set; }
 
-    public virtual Emocione? PagEmocionFkNavigation { get; set; }
+    public virtual Emociones? PagEmocionFkNavigation { get; set; }
 }

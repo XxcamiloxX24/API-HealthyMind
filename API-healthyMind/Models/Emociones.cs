@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace API_healthyMind.Models;
 
-public partial class Emocione
+public partial class Emociones
 {
     /// <summary>
     /// identificador de la emocion
