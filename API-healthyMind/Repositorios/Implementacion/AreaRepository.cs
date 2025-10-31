@@ -4,9 +4,9 @@ using API_healthyMind.Repositorios.Interfaces;
 
 namespace API_healthyMind.Repositorios.Implementacion
 {
-    public class AprendizRepository : RepositorioGenerico<Aprendiz>, IAprendizRepository
+    public class AreaRepository : RepositorioGenerico<Area>, IAreaRepository
     {
-        public AprendizRepository(AppDbContext context) : base(context)
+        public AreaRepository(AppDbContext context) : base(context)
         {
         }
     }
