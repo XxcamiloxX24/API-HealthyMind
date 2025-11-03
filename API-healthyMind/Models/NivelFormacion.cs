@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace API_healthyMind.Models;
 
@@ -19,6 +20,6 @@ public partial class NivelFormacion
     /// Descripcion del tipo de formacion
     /// </summary>
     public string? NivForDescripcion { get; set; }
-
+    [JsonIgnore]
     public virtual ICollection<Programaformacion> Programaformacions { get; set; } = new List<Programaformacion>();
 }
