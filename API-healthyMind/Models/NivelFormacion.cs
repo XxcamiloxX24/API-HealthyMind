@@ -20,6 +20,6 @@ public partial class NivelFormacion
     /// Descripcion del tipo de formacion
     /// </summary>
     public string? NivForDescripcion { get; set; }
-    [JsonIgnore]
+    [JsonIgnore]                                                                                                                                                                                                                                                                                                                                                         
     public virtual ICollection<Programaformacion> Programaformacions { get; set; } = new List<Programaformacion>();
 }

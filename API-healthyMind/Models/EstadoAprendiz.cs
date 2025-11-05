@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace API_healthyMind.Models;
 
@@ -20,5 +21,6 @@ public partial class EstadoAprendiz
     /// </summary>
     public string? EstAprDescrip { get; set; }
 
+    [JsonIgnore]
     public virtual ICollection<Aprendiz> Aprendizs { get; set; } = new List<Aprendiz>();
 }
