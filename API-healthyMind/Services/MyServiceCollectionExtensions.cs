@@ -32,6 +32,13 @@ namespace API_healthyMind.Services
             services.AddScoped<ITestPreguntasRepository, TestPreguntasRepository>();
 
             services.AddScoped<IUnidadDeTrabajo, UnidadDeTrabajo>();
+
+            services.AddControllers()
+                    .AddJsonOptions(options =>
+                    {
+                        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+                        options.JsonSerializerOptions.WriteIndented = true;
+                    });
             return services;
         }
     }

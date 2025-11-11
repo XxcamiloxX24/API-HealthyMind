@@ -311,7 +311,7 @@ public partial class AppDbContext : DbContext
                 .HasForeignKey(d => d.CenCodFk)
                 .HasConstraintName("centro_ibfk_2");
 
-            entity.HasOne(d => d.CenRegCodFkNavigation).WithMany(p => p.Centros)
+            entity.HasOne(d => d.Regional).WithMany(p => p.Centros)
                 .HasForeignKey(d => d.CenRegCodFk)
                 .HasConstraintName("centro_ibfk_1");
         });

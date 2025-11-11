@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace API_healthyMind.Models;
 
@@ -28,9 +29,10 @@ public partial class Centro
 
     public virtual Centro? CenCodFkNavigation { get; set; }
 
-    public virtual Regional? CenRegCodFkNavigation { get; set; }
-
+    public virtual Regional? Regional { get; set; }
+    [JsonIgnore]
     public virtual ICollection<Centro> InverseCenCodFkNavigation { get; set; } = new List<Centro>();
 
+    [JsonIgnore]
     public virtual ICollection<Programaformacion> Programaformacions { get; set; } = new List<Programaformacion>();
 }
