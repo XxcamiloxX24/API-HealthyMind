@@ -20,15 +20,15 @@ namespace API_healthyMind.Controllers
         [HttpGet]
         public async Task<IActionResult> ObtenerTodos()
         {
-            var datos = await _uow.Ciudad.ObtenerConRegional(e => e.Include(c => c.CiuRegionalFkNavigation));
+            var datos = await _uow.Ciudad.ObtenerConRegional(e => e.Include(c => c.Regional));
             return Ok(datos);
         }
 
         [HttpGet("regional/{id}")]
         public async Task<IActionResult> ObtenerPorRegional(int id)
         {
-            var datos = await _uow.Ciudad.ObtenerPorRegional(e => e.CiuRegionalFkNavigation.RegCodigo == id,
-                e => e.Include(c => c.CiuRegionalFkNavigation));
+            var datos = await _uow.Ciudad.ObtenerPorRegional(e => e.Regional.RegCodigo == id,
+                e => e.Include(c => c.Regional));
             return Ok(datos);
         }
 

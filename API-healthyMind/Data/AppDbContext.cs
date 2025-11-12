@@ -221,15 +221,21 @@ public partial class AppDbContext : DbContext
 
             entity.ToTable("area");
 
-            entity.HasIndex(e => e.AreaCenCodFk, "fac_cen_codFK");
+            entity.HasIndex(e => e.AreaPsicCodFk, "area_psic_codFK");
+
 
             entity.Property(e => e.AreaCodigo)
                 .HasComment("Identificador de la facultad o area")
                 .HasColumnType("int(40)")
                 .HasColumnName("area_codigo");
-            entity.Property(e => e.AreaCenCodFk)
+            entity.Property(e => e.AreaPsicCodFk)
                 .HasColumnType("int(40)")
-                .HasColumnName("area_cen_codFK");
+                .HasColumnName("area_psic_codFK");
+
+            entity.HasOne(d => d.AreaPsicologo).WithMany(d => d.Area)
+                .HasForeignKey(d => d.AreaPsicCodFk)
+                .HasConstraintName("area_ibfk_1");
+
             entity.Property(e => e.AreaEstadoRegistro)
                 .HasDefaultValueSql("'activo'")
                 .HasColumnType("enum('activo','inactivo')")
@@ -401,7 +407,7 @@ public partial class AppDbContext : DbContext
                 .HasColumnType("int(40)")
                 .HasColumnName("ciu_regionalFK");
 
-            entity.HasOne(d => d.CiuRegionalFkNavigation).WithMany(p => p.Ciudads)
+            entity.HasOne(d => d.Regional).WithMany(p => p.Ciudads)
                 .HasForeignKey(d => d.CiuRegionalFk)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("ciudad_ibfk_1");

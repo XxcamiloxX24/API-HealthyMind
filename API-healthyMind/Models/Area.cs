@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace API_healthyMind.Models;
 
@@ -16,8 +17,10 @@ public partial class Area
     public string? AreaNombre { get; set; }
 
     public string? AreaEstadoRegistro { get; set; }
+    [JsonIgnore]
+    public int? AreaPsicCodFk { get; set; }
+    public virtual Psicologo? AreaPsicologo { get; set; }
 
-    public int? AreaCenCodFk { get; set; }
-
+    [JsonIgnore]
     public virtual ICollection<Programaformacion> Programaformacions { get; set; } = new List<Programaformacion>();
 }

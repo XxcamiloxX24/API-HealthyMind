@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace API_healthyMind.Models;
 
@@ -71,10 +72,15 @@ public partial class Psicologo
     /// estado del psicologo
     /// </summary>
     public string? PsiEstadoRegistro { get; set; }
+    [JsonIgnore]
+    public virtual ICollection<Area> Area { get; set; } = new List<Area>();
 
+    [JsonIgnore]
     public virtual ICollection<Cita> Cita { get; set; } = new List<Cita>();
 
+    [JsonIgnore]
     public virtual ICollection<SeguimientoAprendiz> SeguimientoAprendizs { get; set; } = new List<SeguimientoAprendiz>();
 
+    [JsonIgnore]
     public virtual ICollection<TestGeneral> TestGenerals { get; set; } = new List<TestGeneral>();
 }
