@@ -21,15 +21,18 @@ public partial class Centro
     /// </summary>
     public string? CenDireccion { get; set; }
 
-    public string? CenEstadoRegistro { get; set; }
 
+    [JsonIgnore]
     public int? CenRegCodFk { get; set; }
+    public virtual Regional? Regional { get; set; }
 
     public int? CenCodFk { get; set; }
 
-    public virtual Centro? CenCodFkNavigation { get; set; }
+    [JsonIgnore]
+    public virtual Centro? centroPadre { get; set; }
+    [JsonIgnore]
+    public string? CenEstadoRegistro { get; set; }
 
-    public virtual Regional? Regional { get; set; }
     [JsonIgnore]
     public virtual ICollection<Centro> InverseCenCodFkNavigation { get; set; } = new List<Centro>();
 

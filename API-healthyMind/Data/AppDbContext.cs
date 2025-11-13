@@ -313,7 +313,7 @@ public partial class AppDbContext : DbContext
                 .HasColumnType("int(40)")
                 .HasColumnName("cen_reg_codFK");
 
-            entity.HasOne(d => d.CenCodFkNavigation).WithMany(p => p.InverseCenCodFkNavigation)
+            entity.HasOne(d => d.centroPadre).WithMany(p => p.InverseCenCodFkNavigation)
                 .HasForeignKey(d => d.CenCodFk)
                 .HasConstraintName("centro_ibfk_2");
 
@@ -653,15 +653,15 @@ public partial class AppDbContext : DbContext
                 .HasComment("Nombre del programa")
                 .HasColumnName("prog_nombre");
 
-            entity.HasOne(d => d.ProgAreaFkNavigation).WithMany(p => p.Programaformacions)
+            entity.HasOne(d => d.Area).WithMany(p => p.Programaformacions)
                 .HasForeignKey(d => d.ProgAreaFk)
                 .HasConstraintName("programaformacion_ibfk_3");
 
-            entity.HasOne(d => d.ProgCentroFkNavigation).WithMany(p => p.Programaformacions)
+            entity.HasOne(d => d.Centro).WithMany(p => p.Programaformacions)
                 .HasForeignKey(d => d.ProgCentroFk)
                 .HasConstraintName("programaformacion_ibfk_1");
 
-            entity.HasOne(d => d.ProgNivFormFkNavigation).WithMany(p => p.Programaformacions)
+            entity.HasOne(d => d.NivelFormacion).WithMany(p => p.Programaformacions)
                 .HasForeignKey(d => d.ProgNivFormFk)
                 .HasConstraintName("programaformacion_ibfk_2");
         });

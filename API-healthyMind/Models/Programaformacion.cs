@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace API_healthyMind.Models;
 
@@ -25,19 +26,20 @@ public partial class Programaformacion
     /// </summary>
     public string? ProgFormaModalidad { get; set; }
 
-    public string? ProgEstadoRegistro { get; set; }
-
+    [JsonIgnore]
     public int? ProgNivFormFk { get; set; }
+    public virtual NivelFormacion? NivelFormacion { get; set; }
 
+    [JsonIgnore]
     public int? ProgAreaFk { get; set; }
+    public virtual Area? Area { get; set; }
 
+    [JsonIgnore]
     public int? ProgCentroFk { get; set; }
+    public virtual Centro? Centro { get; set; }
 
+    [JsonIgnore]
+    public string? ProgEstadoRegistro { get; set; }
+    [JsonIgnore]
     public virtual ICollection<Ficha> Fichas { get; set; } = new List<Ficha>();
-
-    public virtual Area? ProgAreaFkNavigation { get; set; }
-
-    public virtual Centro? ProgCentroFkNavigation { get; set; }
-
-    public virtual NivelFormacion? ProgNivFormFkNavigation { get; set; }
 }
