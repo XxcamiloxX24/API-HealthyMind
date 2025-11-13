@@ -517,7 +517,7 @@ public partial class AppDbContext : DbContext
                 .HasColumnType("int(40)")
                 .HasColumnName("fic_programaFK");
 
-            entity.HasOne(d => d.FicProgramaFkNavigation).WithMany(p => p.Fichas)
+            entity.HasOne(d => d.programaFormacion).WithMany(p => p.Fichas)
                 .HasForeignKey(d => d.FicProgramaFk)
                 .HasConstraintName("ficha_ibfk_1");
         });

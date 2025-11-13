@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace API_healthyMind.Models;
 
@@ -24,11 +25,13 @@ public partial class Ficha
     /// </summary>
     public string? FicEstadoFormacion { get; set; }
 
+    [JsonIgnore]
     public int? FicProgramaFk { get; set; }
-
+    public virtual Programaformacion? programaFormacion { get; set; }
+    [JsonIgnore]
     public string? FicEstadoRegistro { get; set; }
 
+    [JsonIgnore]
     public virtual ICollection<AprendizFicha> AprendizFichas { get; set; } = new List<AprendizFicha>();
 
-    public virtual Programaformacion? FicProgramaFkNavigation { get; set; }
 }
