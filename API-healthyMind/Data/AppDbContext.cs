@@ -18,6 +18,7 @@ public partial class AppDbContext : DbContext
     }
 
     public virtual DbSet<Aprendiz> Aprendizs { get; set; }
+    public virtual DbSet<VerificationCode> VerificationCodes { get; set; }
 
     public virtual DbSet<AprendizFicha> AprendizFichas { get; set; }
 
@@ -178,6 +179,35 @@ public partial class AppDbContext : DbContext
                 .HasForeignKey(d => d.AprEstadoAprFk)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("aprendiz_ibfk_1");
+        });
+
+        modelBuilder.Entity<VerificationCode>(entity =>
+        {
+            entity.HasKey(e => e.id).HasName("PRIMARY");
+
+            entity.ToTable("verificationcode");
+
+            entity.HasIndex(e => e.AprendizId, "AprendizId");
+
+
+            entity.Property(e => e.id)
+                .HasColumnType("int(11)")
+                .HasColumnName("id");
+            entity.Property(e => e.AprendizId)
+                .HasColumnType("int(11)")
+                .HasColumnName("AprendizId");
+            entity.Property(e => e.Codigo)
+                .HasMaxLength(6)
+                .HasColumnName("Codigo");
+            entity.Property(e => e.Expiration)
+                .HasColumnType("datetime")
+                .HasColumnName("Expiration");
+            
+            
+
+            entity.HasOne(d => d.Aprendiz).WithMany(p => p.VerificationCode)
+                .HasForeignKey(d => d.AprendizId)
+                .HasConstraintName("verificationcode_ibfk_1");
         });
 
         modelBuilder.Entity<AprendizFicha>(entity =>

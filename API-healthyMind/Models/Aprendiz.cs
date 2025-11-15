@@ -105,4 +105,6 @@ public partial class Aprendiz
     public virtual ICollection<AprendizFicha> AprendizFichas { get; set; } = new List<AprendizFicha>();
     [JsonIgnore]
     public virtual ICollection<Diario> Diarios { get; set; } = new List<Diario>();
+    [JsonIgnore]
+    public virtual ICollection<VerificationCode> VerificationCode { get; set; } = new List<VerificationCode>();
 }

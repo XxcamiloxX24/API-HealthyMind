@@ -1,6 +1,7 @@
 ﻿using API_healthyMind.Data;
 using API_healthyMind.Models;
 using API_healthyMind.Models.DTO;
+using API_healthyMind.Repositorios.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -15,10 +16,13 @@ namespace API_healthyMind.Controllers
     public class AprendizController : ControllerBase
     {
         private readonly IUnidadDeTrabajo _uow;
+        private readonly IEmailService _emailService;
 
-        public AprendizController(IUnidadDeTrabajo uow)
+
+        public AprendizController(IUnidadDeTrabajo uow, IEmailService emailService)
         {
             _uow = uow;
+            _emailService = emailService;
         }
 
         private static object MapearAprendiz(Aprendiz d)
@@ -286,6 +290,7 @@ namespace API_healthyMind.Controllers
             return Ok(resultado);
         }
 
+        /*
         [HttpPost]
         public async Task<IActionResult> CrearAprendiz([FromBody] AprendizDTO nuevoAprendiz)
         {
@@ -340,5 +345,128 @@ namespace API_healthyMind.Controllers
                 resultado
             });
         }
+        */
+
+        [HttpPost("registro-inicial")]
+        public async Task<IActionResult> RegistroInicial([FromBody] RegistroInicialDTO dto)
+        {
+            if (dto == null) return BadRequest();
+
+            var existe = await _uow.Aprendiz
+                .ObtenerTodoConCondicion(a => a.AprNroDocumento == dto.AprNroDocumento && a.AprEstadoRegistro == "activo");
+
+            if (existe.Any())
+                return BadRequest("El documento ya está registrado");
+
+            var aprendiz = new Aprendiz
+            {
+                AprTipoDocumento = dto.AprTipoDocumento,
+                AprNroDocumento = dto.AprNroDocumento,
+                AprPassword = BCrypt.Net.BCrypt.HashPassword(dto.AprPassword),
+                AprFechaCreacion = DateTime.Now,
+                AprEstadoRegistro = "inactivo"
+            };
+
+            await _uow.Aprendiz.Agregar(aprendiz);
+            await _uow.SaveChangesAsync();
+
+            // Generamos código
+            var code = new Random().Next(100000, 999999).ToString();
+
+            var v = new VerificationCode
+            {
+                AprendizId = aprendiz.AprCodigo,
+                Codigo = code,
+                Expiration = DateTime.UtcNow.AddMinutes(10)
+            };
+
+            await _uow.VerificationCode.Agregar(v);
+            await _uow.SaveChangesAsync();
+
+            // Enviar correo
+            await _emailService.SendAsync(dto.CorreoPersonal,
+                "Código de verificación - Healthy Mind",
+                $"Tu código de verificación es: {code}");
+
+            return Ok("Código enviado al correo.");
+        }
+
+        [HttpPost("verificar-codigo")]
+        public async Task<IActionResult> VerificarCodigo(VerificarCodigoDTO dto)
+        {
+            var registro = await _uow.VerificationCode
+                .ObtenerTodoConCondicion(v => v.AprendizId == dto.AprendizId && v.Codigo == dto.Codigo && v.Expiration > DateTime.UtcNow);
+
+            if (!registro.Any())
+                return BadRequest("Código inválido o expirado");
+
+            var aprendiz = await _uow.Aprendiz.ObtenerPorID(dto.AprendizId);
+            aprendiz.AprEstadoRegistro = "activo";
+
+            _uow.Aprendiz.Actualizar(aprendiz);
+            await _uow.SaveChangesAsync();
+
+            return Ok("Cuenta verificada correctamente.");
+        }
+
+        [HttpPost("reenviar-codigo")]
+        public async Task<IActionResult> ReenviarCodigo([FromBody] ReenviarCodigoDTO dto)
+        {
+            // Verificar si existe aprendiz
+            var aprendiz = await _uow.Aprendiz.ObtenerTodoConCondicion(a => a.AprNroDocumento == dto.AprNroDocumento);
+            if (!aprendiz.Any())
+                return NotFound("No existe un usuario con ese documento.");
+
+            var user = aprendiz.First();
+
+            // Eliminar códigos anteriores
+            var anteriores = await _uow.VerificationCode.ObtenerTodoConCondicion(v => v.AprendizId == user.AprCodigo);
+            foreach (var item in anteriores)
+                _uow.VerificationCode.Eliminar(item);
+
+            // Crear nuevo código
+            var codigo = new Random().Next(100000, 999999).ToString();
+
+            var nuevo = new VerificationCode
+            {
+                AprendizId = user.AprCodigo,
+                Codigo = codigo,
+                Expiration = DateTime.Now.AddMinutes(10)
+            };
+
+            await _uow.VerificationCode.Agregar(nuevo);
+            await _uow.SaveChangesAsync();
+
+            // Enviar correo
+            await _emailService.SendAsync(
+                user.AprCorreoPersonal,
+                "Nuevo código de verificación - Healthy Mind",
+                $"Tu nuevo código es: {codigo}"
+            );
+
+            return Ok("Se envió un nuevo código de verificación.");
+        }
+
+        [HttpPut("cambiar-correo")]
+        public async Task<IActionResult> cambiarCorreo(int documento, string correo)
+        {
+
+            var aprendiz = await _uow.Aprendiz.ObtenerTodoConCondicion(a => a.AprNroDocumento == documento && a.AprEstadoRegistro == "inactivo");
+
+            var user = aprendiz.FirstOrDefault();
+
+            if (user == null)
+                return NotFound("No existe un usuario inactivo con ese documento.");
+
+            user.AprCorreoPersonal = correo;
+
+            _uow.Aprendiz.Actualizar(user);
+            await _uow.SaveChangesAsync();
+
+            return Ok("Se ha actualizado correctamente!");
+        }
+
+
+
     }
 }

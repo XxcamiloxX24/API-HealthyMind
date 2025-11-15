@@ -10,6 +10,7 @@ namespace API_healthyMind.Services
         {
             services.AddScoped<IAprendizFichaRepository, AprendizFichaRepository>();
             services.AddScoped<IAprendizRepository, AprendizRepository>();
+            services.AddScoped<IVerificationCodeRepository, VerificationCodeRepository>();
             services.AddScoped<IAreaRepository, AreaRepository>();
             services.AddScoped<ICategoriaPreguntasRepository, CategoriaPreguntasRepository>();
             services.AddScoped<ICategoriaRespuestasRepository, CategoriaRespuestasRepository>();
@@ -32,6 +33,8 @@ namespace API_healthyMind.Services
             services.AddScoped<ITestPreguntasRepository, TestPreguntasRepository>();
 
             services.AddScoped<IUnidadDeTrabajo, UnidadDeTrabajo>();
+
+            services.AddScoped<IEmailService, EmailService>();
 
             services.AddControllers()
                     .AddJsonOptions(options =>

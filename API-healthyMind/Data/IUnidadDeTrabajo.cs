@@ -5,6 +5,7 @@ namespace API_healthyMind.Data
     public interface IUnidadDeTrabajo : IDisposable
     {
         IAprendizFichaRepository AprendizFicha { get; }
+        IVerificationCodeRepository VerificationCode { get; }
         IAprendizRepository Aprendiz { get; }
         IAreaRepository Area { get; }
         ICategoriaPreguntasRepository CategoriaPreguntas { get; }
