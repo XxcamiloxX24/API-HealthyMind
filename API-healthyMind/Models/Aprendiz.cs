@@ -11,6 +11,8 @@ public partial class Aprendiz
     /// </summary>
     public int AprCodigo { get; set; }
 
+    public DateTime AprFechaCreacion { get; set; }
+
     /// <summary>
     /// Tipo de documento de identidad
     /// </summary>

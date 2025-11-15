@@ -82,6 +82,9 @@ public partial class AppDbContext : DbContext
                 .HasComment("Codigo unico del aprendiz")
                 .HasColumnType("int(40)")
                 .HasColumnName("apr_codigo");
+            entity.Property(e => e.AprFechaCreacion)
+                .HasColumnType("datetime")
+                .HasColumnName("apr_fechacreacion");
             entity.Property(e => e.AprAcudApellido)
                 .HasMaxLength(100)
                 .HasComment("apelldio del acudiente")

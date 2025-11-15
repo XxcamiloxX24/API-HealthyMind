@@ -26,6 +26,7 @@ namespace API_healthyMind.Controllers
             return new
             {
                 Codigo = d.AprCodigo,
+                FechaCreacion = d.AprFechaCreacion,
                 TipoDocumento = d.AprTipoDocumento,
                 NroDocumento = d.AprNroDocumento,
                 FechaNacimiento = d.AprFechaNac,
@@ -71,6 +72,7 @@ namespace API_healthyMind.Controllers
             return new
             {
                 Codigo = d.AprCodigo,
+                FechaCreacion = d.AprFechaCreacion,
                 d.AprFechaEliminacion,
                 d.AprRazonEliminacion,
                 TipoDocumento = d.AprTipoDocumento,
@@ -268,6 +270,75 @@ namespace API_healthyMind.Controllers
             return Ok(resultados);
         }
 
+        [HttpGet("estadistica/por-mes")]
+        public async Task<IActionResult> GetRegistrosPorMes()
+        {
+            var resultado = await _uow.Aprendiz.Query()
+                .GroupBy(x => x.AprFechaCreacion.Month)
+                .Select(g => new
+                {
+                    Mes = g.Key,
+                    Total = g.Count()
+                })
+                .OrderBy(x => x.Mes)
+                .ToListAsync();
 
+            return Ok(resultado);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CrearAprendiz([FromBody] AprendizDTO nuevoAprendiz)
+        {
+            if (nuevoAprendiz == null || nuevoAprendiz.Equals(null))
+            {
+                return BadRequest("El cuerpo no puede ser nulo.");
+            }
+
+            var aprendizNew = new Aprendiz
+            {
+                AprTipoDocumento = nuevoAprendiz.AprTipoDocumento,
+                AprNroDocumento = nuevoAprendiz.AprNroDocumento,
+                AprFechaCreacion = DateTime.Now,
+                AprFechaNac = nuevoAprendiz.AprFechaNac,
+                AprNombre = nuevoAprendiz.AprNombre,
+                AprSegundoNombre = nuevoAprendiz.AprSegundoNombre,
+                AprApellido = nuevoAprendiz.AprApellido,
+                AprSegundoApellido = nuevoAprendiz.AprSegundoApellido,
+                AprCiudadFk = nuevoAprendiz.AprCiudadFk,
+                AprDireccion = nuevoAprendiz.AprDireccion,
+                AprCorreoInstitucional = nuevoAprendiz.AprCorreoInstitucional,
+                AprCorreoPersonal = nuevoAprendiz.AprCorreoPersonal,
+                AprPassword = nuevoAprendiz.AprPassword,
+                AprTelefono = nuevoAprendiz.AprTelefono,
+                AprEps = nuevoAprendiz.AprEps,
+                AprPatologia = nuevoAprendiz.AprPatologia,
+                AprEstadoAprFk = nuevoAprendiz.AprEstadoAprFk,
+                AprTipoPoblacion = nuevoAprendiz.AprTipoPoblacion,
+                AprAcudNombre = nuevoAprendiz.AprAcudNombre,
+                AprAcudApellido = nuevoAprendiz.AprAcudApellido,
+                AprTelefonoAcudiente = nuevoAprendiz.AprTelefonoAcudiente
+            };
+            await _uow.Aprendiz.Agregar(aprendizNew);
+            await _uow.SaveChangesAsync();
+
+
+
+            var datos = await _uow.Aprendiz.ObtenerTodoConCondicion(e => e.AprEstadoRegistro == "activo" && e.AprNroDocumento == aprendizNew.AprNroDocumento,
+                e => e.Include(c => c.Municipio)
+                        .ThenInclude(c => c.Regional)
+                      .Include(c => c.EstadoAprendiz));
+
+            if (!datos.Any() || datos == null)
+            {
+                return NotFound("No se encontró el registro!");
+            }
+            var resultado = datos.Select(MapearAprendiz);
+
+            return Ok(new
+            {
+                mensaje = "Programa creado correctamente!",
+                resultado
+            });
+        }
     }
 }
