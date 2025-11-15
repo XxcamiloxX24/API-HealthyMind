@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace API_healthyMind.Models;
 
@@ -48,12 +49,13 @@ public partial class Aprendiz
     /// Correo del aprendiz
     /// </summary>
     public string? AprCorreoPersonal { get; set; }
-
+    [JsonIgnore]
     public string? AprPassword { get; set; }
 
     public string? AprDireccion { get; set; }
-
+    [JsonIgnore]
     public int? AprCiudadFk { get; set; }
+    public virtual Ciudad? Municipio { get; set; }
 
     /// <summary>
     /// Numero de celular
@@ -63,8 +65,9 @@ public partial class Aprendiz
     public string? AprEps { get; set; }
 
     public string? AprPatologia { get; set; }
-
+    [JsonIgnore]
     public int? AprEstadoAprFk { get; set; }
+    public virtual EstadoAprendiz? EstadoAprendiz { get; set; }
 
     public string? AprTipoPoblacion { get; set; }
 
@@ -82,23 +85,22 @@ public partial class Aprendiz
     /// apelldio del acudiente
     /// </summary>
     public string? AprAcudApellido { get; set; }
-
+    [JsonIgnore]
     public byte[]? AprFirma { get; set; }
 
     /// <summary>
     /// Estado del registro
     /// </summary>
+    [JsonIgnore]
     public string? AprEstadoRegistro { get; set; }
-
+    [JsonIgnore]
     public DateTime? AprFechaEliminacion { get; set; }
-
+    [JsonIgnore]
     public string? AprRazonEliminacion { get; set; }
 
-    public virtual Ciudad? AprCiudadFkNavigation { get; set; }
 
-    public virtual EstadoAprendiz? AprEstadoAprFkNavigation { get; set; }
-
+    [JsonIgnore]
     public virtual ICollection<AprendizFicha> AprendizFichas { get; set; } = new List<AprendizFicha>();
-
+    [JsonIgnore]
     public virtual ICollection<Diario> Diarios { get; set; } = new List<Diario>();
 }

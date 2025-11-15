@@ -16,6 +16,7 @@ public partial class Area
     /// </summary>
     public string? AreaNombre { get; set; }
 
+    [JsonIgnore]
     public string? AreaEstadoRegistro { get; set; }
     [JsonIgnore]
     public int? AreaPsicCodFk { get; set; }

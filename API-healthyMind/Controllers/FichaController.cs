@@ -262,11 +262,11 @@ namespace API_healthyMind.Controllers
         public async Task<IActionResult> EliminarFicha(int id)
         {
             var fichaEncontrada = await _uow.Ficha.ObtenerPorID(id);
-            if (fichaEncontrada.FicEstadoFormacion == "inactivo" || fichaEncontrada == null)
+            if (fichaEncontrada.FicEstadoRegistro == "inactivo" || fichaEncontrada == null)
             {
                 return NotFound("No se encontró este ID");
             }
-            fichaEncontrada.FicEstadoFormacion = "inactivo";
+            fichaEncontrada.FicEstadoRegistro = "inactivo";
 
             _uow.Ficha.Actualizar(fichaEncontrada);
             await _uow.SaveChangesAsync();

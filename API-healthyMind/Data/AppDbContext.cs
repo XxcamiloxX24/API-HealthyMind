@@ -61,10 +61,7 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<TestPreguntas> TestPregunta { get; set; }
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseMySql("server=localhost;database=psicologia;uid=root;port=3306", Microsoft.EntityFrameworkCore.ServerVersion.Parse("10.4.32-mariadb"));
-
+    
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder
@@ -169,12 +166,12 @@ public partial class AppDbContext : DbContext
                 .HasColumnType("enum('Desplazado','Negro','Discapacitado','Campesino','Afro','Gitano','Indigena','Ninguno')")
                 .HasColumnName("apr_tipo_poblacion");
 
-            entity.HasOne(d => d.AprCiudadFkNavigation).WithMany(p => p.Aprendizs)
+            entity.HasOne(d => d.Municipio).WithMany(p => p.Aprendizs)
                 .HasForeignKey(d => d.AprCiudadFk)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("aprendiz_ibfk_2");
 
-            entity.HasOne(d => d.AprEstadoAprFkNavigation).WithMany(p => p.Aprendizs)
+            entity.HasOne(d => d.EstadoAprendiz).WithMany(p => p.Aprendizs)
                 .HasForeignKey(d => d.AprEstadoAprFk)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("aprendiz_ibfk_1");
