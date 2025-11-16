@@ -1,8 +1,9 @@
 ﻿namespace API_healthyMind.Models.DTO
 {
-    public class AprendizDTO
+    public class AprendizEditarDTO
     {
-
+        public string? AprTipoDocumento { get; set; }
+        public int? AprNroDocumento { get; set; }
         public DateOnly? AprFechaNac { get; set; }
 
         public string? AprNombre { get; set; }
@@ -14,6 +15,7 @@
         public string? AprSegundoApellido { get; set; }
 
         public string? AprCorreoInstitucional { get; set; }
+        public string? AprCorreoPersonal { get; set; }
 
         public string? AprDireccion { get; set; }
 

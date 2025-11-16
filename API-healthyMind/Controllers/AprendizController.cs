@@ -290,63 +290,6 @@ namespace API_healthyMind.Controllers
             return Ok(resultado);
         }
 
-        /*
-        [HttpPost]
-        public async Task<IActionResult> CrearAprendiz([FromBody] AprendizDTO nuevoAprendiz)
-        {
-            if (nuevoAprendiz == null || nuevoAprendiz.Equals(null))
-            {
-                return BadRequest("El cuerpo no puede ser nulo.");
-            }
-
-            var aprendizNew = new Aprendiz
-            {
-                AprTipoDocumento = nuevoAprendiz.AprTipoDocumento,
-                AprNroDocumento = nuevoAprendiz.AprNroDocumento,
-                AprFechaCreacion = DateTime.Now,
-                AprFechaNac = nuevoAprendiz.AprFechaNac,
-                AprNombre = nuevoAprendiz.AprNombre,
-                AprSegundoNombre = nuevoAprendiz.AprSegundoNombre,
-                AprApellido = nuevoAprendiz.AprApellido,
-                AprSegundoApellido = nuevoAprendiz.AprSegundoApellido,
-                AprCiudadFk = nuevoAprendiz.AprCiudadFk,
-                AprDireccion = nuevoAprendiz.AprDireccion,
-                AprCorreoInstitucional = nuevoAprendiz.AprCorreoInstitucional,
-                AprCorreoPersonal = nuevoAprendiz.AprCorreoPersonal,
-                AprPassword = nuevoAprendiz.AprPassword,
-                AprTelefono = nuevoAprendiz.AprTelefono,
-                AprEps = nuevoAprendiz.AprEps,
-                AprPatologia = nuevoAprendiz.AprPatologia,
-                AprEstadoAprFk = nuevoAprendiz.AprEstadoAprFk,
-                AprTipoPoblacion = nuevoAprendiz.AprTipoPoblacion,
-                AprAcudNombre = nuevoAprendiz.AprAcudNombre,
-                AprAcudApellido = nuevoAprendiz.AprAcudApellido,
-                AprTelefonoAcudiente = nuevoAprendiz.AprTelefonoAcudiente
-            };
-            await _uow.Aprendiz.Agregar(aprendizNew);
-            await _uow.SaveChangesAsync();
-
-
-
-            var datos = await _uow.Aprendiz.ObtenerTodoConCondicion(e => e.AprEstadoRegistro == "activo" && e.AprNroDocumento == aprendizNew.AprNroDocumento,
-                e => e.Include(c => c.Municipio)
-                        .ThenInclude(c => c.Regional)
-                      .Include(c => c.EstadoAprendiz));
-
-            if (!datos.Any() || datos == null)
-            {
-                return NotFound("No se encontró el registro!");
-            }
-            var resultado = datos.Select(MapearAprendiz);
-
-            return Ok(new
-            {
-                mensaje = "Programa creado correctamente!",
-                resultado
-            });
-        }
-        */
-
         [HttpPost("registro-inicial")]
         public async Task<IActionResult> RegistroInicial([FromBody] RegistroInicialDTO dto)
         {
@@ -362,6 +305,7 @@ namespace API_healthyMind.Controllers
             {
                 AprTipoDocumento = dto.AprTipoDocumento,
                 AprNroDocumento = dto.AprNroDocumento,
+                AprCorreoPersonal = dto.CorreoPersonal,
                 AprPassword = BCrypt.Net.BCrypt.HashPassword(dto.AprPassword),
                 AprFechaCreacion = DateTime.Now,
                 AprEstadoRegistro = "inactivo"
@@ -401,6 +345,7 @@ namespace API_healthyMind.Controllers
                 return BadRequest("Código inválido o expirado");
 
             var aprendiz = await _uow.Aprendiz.ObtenerPorID(dto.AprendizId);
+            
             aprendiz.AprEstadoRegistro = "activo";
 
             _uow.Aprendiz.Actualizar(aprendiz);
@@ -447,6 +392,61 @@ namespace API_healthyMind.Controllers
             return Ok("Se envió un nuevo código de verificación.");
         }
 
+        [HttpPut("completar-informacion")]
+        public async Task<IActionResult> CompletarInformacion(int documento, [FromBody] AprendizDTO nuevoAprendiz)
+        {
+            if (nuevoAprendiz == null || nuevoAprendiz.Equals(null))
+            {
+                return BadRequest("El cuerpo no puede ser nulo.");
+            }
+
+            var aprEncontrado = await _uow.Aprendiz.ObtenerTodoConCondicion(e => e.AprEstadoRegistro == "activo" && e.AprNroDocumento == documento,
+                e => e.Include(c => c.Municipio)
+                        .ThenInclude(c => c.Regional)
+                      .Include(c => c.EstadoAprendiz));
+
+            var resultado = aprEncontrado.FirstOrDefault();
+
+            resultado.AprFechaCreacion = DateTime.Now;
+            resultado.AprFechaNac = nuevoAprendiz.AprFechaNac;
+            resultado.AprNombre = nuevoAprendiz.AprNombre;
+            resultado.AprSegundoNombre = nuevoAprendiz.AprSegundoNombre;
+            resultado.AprApellido = nuevoAprendiz.AprApellido;
+            resultado.AprSegundoApellido = nuevoAprendiz.AprSegundoApellido;
+            resultado.AprCiudadFk = nuevoAprendiz.AprCiudadFk;
+            resultado.AprDireccion = nuevoAprendiz.AprDireccion;
+            resultado.AprCorreoInstitucional = nuevoAprendiz.AprCorreoInstitucional;
+            resultado.AprTelefono = nuevoAprendiz.AprTelefono;
+            resultado.AprEps = nuevoAprendiz.AprEps;
+            resultado.AprPatologia = nuevoAprendiz.AprPatologia;
+            resultado.AprEstadoAprFk = nuevoAprendiz.AprEstadoAprFk;
+            resultado.AprTipoPoblacion = nuevoAprendiz.AprTipoPoblacion;
+            resultado.AprAcudNombre = nuevoAprendiz.AprAcudNombre;
+            resultado.AprAcudApellido = nuevoAprendiz.AprAcudApellido;
+            resultado.AprTelefonoAcudiente = nuevoAprendiz.AprTelefonoAcudiente;
+            await _uow.Aprendiz.Agregar(resultado);
+            await _uow.SaveChangesAsync();
+
+
+
+            var datos = await _uow.Aprendiz.ObtenerTodoConCondicion(e => e.AprEstadoRegistro == "activo" && e.AprNroDocumento == resultado.AprNroDocumento,
+                e => e.Include(c => c.Municipio)
+                        .ThenInclude(c => c.Regional)
+                      .Include(c => c.EstadoAprendiz));
+
+            if (!datos.Any() || datos == null)
+            {
+                return NotFound("No se encontró el registro!");
+            }
+            var resultados = datos.Select(MapearAprendiz);
+
+            return Ok(new
+            {
+                mensaje = "Programa creado correctamente!",
+                resultados
+            });
+        }
+
         [HttpPut("cambiar-correo")]
         public async Task<IActionResult> cambiarCorreo(int documento, string correo)
         {
@@ -467,6 +467,82 @@ namespace API_healthyMind.Controllers
         }
 
 
+        [HttpPut("editar-informacion")]
+        public async Task<IActionResult> EditarInformacion(int Documento, [FromBody] AprendizEditarDTO dto)
+        {
+            var aprEncontrado = await _uow.Aprendiz.ObtenerTodoConCondicion(a => a.AprNroDocumento == Documento && a.AprEstadoRegistro == "activo");
+
+            if (!aprEncontrado.Any())
+            {
+                return NotFound("No se encontró este aprendiz");
+            }
+
+            var resultado = aprEncontrado.FirstOrDefault();
+
+            if (dto.AprNroDocumento != resultado.AprNroDocumento)
+            {
+                bool existeDoc = await _uow.Aprendiz.Existe(a =>
+                    a.AprNroDocumento == dto.AprNroDocumento &&
+                    a.AprCodigo != resultado.AprCodigo &&
+                    a.AprEstadoRegistro == "activo"
+                );
+
+                if (existeDoc)
+                    return BadRequest("El número de documento ya se encuentra registrado en otro aprendiz.");
+            }
+
+
+            resultado.AprTipoDocumento = dto.AprTipoDocumento;
+            resultado.AprNroDocumento = dto.AprNroDocumento;
+            resultado.AprCorreoPersonal = dto.AprCorreoPersonal;
+            resultado.AprFechaNac = dto.AprFechaNac;
+            resultado.AprNombre = dto.AprNombre;
+            resultado.AprSegundoNombre = dto.AprSegundoNombre;
+            resultado.AprApellido = dto.AprApellido;
+            resultado.AprSegundoApellido = dto.AprSegundoApellido;
+            resultado.AprCiudadFk = dto.AprCiudadFk;
+            resultado.AprDireccion = dto.AprDireccion;
+            resultado.AprCorreoInstitucional = dto.AprCorreoInstitucional;
+            resultado.AprTelefono = dto.AprTelefono;
+            resultado.AprEps = dto.AprEps;
+            resultado.AprPatologia = dto.AprPatologia;
+            resultado.AprEstadoAprFk = dto.AprEstadoAprFk;
+            resultado.AprTipoPoblacion = dto.AprTipoPoblacion;
+            resultado.AprAcudNombre = dto.AprAcudNombre;
+            resultado.AprAcudApellido = dto.AprAcudApellido;
+            resultado.AprTelefonoAcudiente = dto.AprTelefonoAcudiente;
+
+            _uow.Aprendiz.Actualizar(resultado);
+            await _uow.SaveChangesAsync();
+
+            return Ok(new
+            {
+                mensaje = "Se han editado correctamente los datos!",
+                resultado
+            });
+        }
+
+
+        [HttpPut("eliminar-usuario")]
+        public async Task<IActionResult> EliminarAprendiz(int documento, [FromBody] RazonEliminacionDTO dto)
+        {
+            var aprEncontrado = await _uow.Aprendiz.ObtenerTodoConCondicion(a => a.AprNroDocumento == documento && a.AprEstadoRegistro == "activo");
+
+            var user = aprEncontrado.FirstOrDefault();
+
+            if (user == null)
+                return NotFound("No se encontró este id.");
+
+            user.AprRazonEliminacion = dto.RazonEliminacion;
+            user.AprFechaEliminacion = DateTime.Now;
+            user.AprEstadoRegistro = "inactivo";
+
+            _uow.Aprendiz.Actualizar(user);
+            await _uow.SaveChangesAsync();
+            return Ok("Se ha eliminado correctamente ");
+
+
+        }
 
     }
 }
