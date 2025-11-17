@@ -26,7 +26,10 @@ namespace API_healthyMind.Controllers
             var datos = await _uow.Area.ObtenerTodoConPsic(e => e.AreaEstadoRegistro == "activo",
                 e => e.Include(c => c.AreaPsicologo));
 
-            
+            if (!datos.Any())
+            {
+                return NotFound("No se encontró ningun area");
+            }
             return Ok(datos);
         }
         
@@ -35,7 +38,12 @@ namespace API_healthyMind.Controllers
         {
             var datos = await _uow.Area.ObtenerTodoConPsic(e => e.AreaCodigo == id && e.AreaEstadoRegistro == "activo",
                 e => e.Include(c => c.AreaPsicologo));
-            
+
+            if (!datos.Any())
+            {
+                return NotFound("No se encontró esta area");
+            }
+
             return Ok(datos);
         }
 
@@ -44,6 +52,11 @@ namespace API_healthyMind.Controllers
         {
             var datos = await _uow.Area.ObtenerTodoConPsic(e => e.AreaNombre.ToLower() == nombre.ToLower() && e.AreaEstadoRegistro == "activo",
                 e => e.Include(c => c.AreaPsicologo));
+
+            if (!datos.Any())
+            {
+                return NotFound("No se encontró esta area");
+            }
 
             return Ok(datos);
         }

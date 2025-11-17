@@ -2,6 +2,7 @@
 using API_healthyMind.Models;
 using API_healthyMind.Models.DTO;
 using API_healthyMind.Repositorios.Interfaces;
+using API_healthyMind.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -465,6 +466,82 @@ namespace API_healthyMind.Controllers
 
             return Ok("Se ha actualizado correctamente!");
         }
+
+        [HttpPut("cambiar-password")]
+        public async Task<IActionResult> CambiarPassword([FromBody] CambiarPasswordDTO dto)
+        {
+            var APR = await _uow.Aprendiz.ObtenerTodoConCondicion(c => c.AprNroDocumento == dto.UsuarioDocumento);
+            var resultado = APR.FirstOrDefault();
+
+            if (resultado == null)
+                return NotFound("El psicólogo no existe");
+
+            // Verificar contraseña actual con BCrypt
+            bool esCorrecta = BCrypt.Net.BCrypt.Verify(dto.PasswordActual, resultado.AprPassword);
+
+            if (!esCorrecta)
+                return BadRequest("La contraseña actual no es correcta");
+
+            // Guardar nueva contraseña encriptada
+            resultado.AprPassword = BCrypt.Net.BCrypt.HashPassword(dto.PasswordNueva);
+
+            _uow.Aprendiz.Actualizar(resultado);
+            await _uow.SaveChangesAsync();
+
+            return Ok("Contraseña actualizada correctamente");
+        }
+
+        [HttpPost("recuperar-password")]
+        public async Task<IActionResult> RecuperarPassword([FromBody] SolicitarRecuperacionDTO dto)
+        {
+            var aprendiz = await _uow.Aprendiz.ObtenerTodoConCondicion(a =>
+                a.AprCorreoInstitucional == dto.Correo ||
+                a.AprCorreoPersonal == dto.Correo
+            );
+
+            var usuario = aprendiz.FirstOrDefault();
+
+            if (usuario == null)
+                return NotFound("No existe un aprendiz con ese correo.");
+
+            // Crear JWT temporal
+            var token = JwtPasswordHelper.GenerarToken((int)usuario.AprNroDocumento, "aprendiz");
+
+            var link = $"{token}";
+
+            await _emailService.SendAsync(dto.Correo, "Recuperación de contraseña", $"Copia este Token: {link}");
+
+            return Ok("Se envió un enlace de recuperación al correo.");
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetearPasswordDTO dto)
+        {
+            var datosToken = JwtPasswordHelper.ValidarToken(dto.Token);
+
+            if (datosToken == null)
+                return BadRequest("Token inválido o expirado.");
+
+            // Obtener aprendiz por documento del token
+            var aprendiz = (await _uow.Aprendiz.ObtenerTodoConCondicion(
+                                a => a.AprNroDocumento == datosToken.Documento)).FirstOrDefault();
+
+            if (aprendiz == null)
+                return NotFound("El aprendiz no existe.");
+
+            if (aprendiz.AprEstadoRegistro != "activo")
+                return BadRequest("El aprendiz está inactivo, no es posible cambiar la contraseña.");
+
+            // Actualizar contraseña
+            aprendiz.AprPassword = BCrypt.Net.BCrypt.HashPassword(dto.NuevaPassword);
+
+            _uow.Aprendiz.Actualizar(aprendiz);
+            await _uow.SaveChangesAsync();
+
+            return Ok("Contraseña actualizada correctamente.");
+        }
+
+
 
 
         [HttpPut("editar-informacion")]
