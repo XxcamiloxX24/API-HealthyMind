@@ -66,11 +66,13 @@ public partial class Psicologo
     /// </summary>
     public string? PsiPassword { get; set; }
 
+    [JsonIgnore]
     public byte[]? PsiFirma { get; set; }
 
     /// <summary>
     /// estado del psicologo
     /// </summary>
+    [JsonIgnore]
     public string? PsiEstadoRegistro { get; set; }
     [JsonIgnore]
     public virtual ICollection<Area> Area { get; set; } = new List<Area>();

@@ -236,11 +236,11 @@ public partial class AppDbContext : DbContext
                 .HasColumnType("int(40)")
                 .HasColumnName("apr_fic_fichaFK");
 
-            entity.HasOne(d => d.AprFicAprendizFkNavigation).WithMany(p => p.AprendizFichas)
+            entity.HasOne(d => d.Aprendiz).WithMany(p => p.AprendizFichas)
                 .HasForeignKey(d => d.AprFicAprendizFk)
                 .HasConstraintName("aprendiz_ficha_ibfk_2");
 
-            entity.HasOne(d => d.AprFicFichaFkNavigation).WithMany(p => p.AprendizFichas)
+            entity.HasOne(d => d.Ficha).WithMany(p => p.AprendizFichas)
                 .HasForeignKey(d => d.AprFicFichaFk)
                 .HasConstraintName("aprendiz_ficha_ibfk_1");
         });
