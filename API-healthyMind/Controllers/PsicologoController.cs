@@ -41,8 +41,7 @@ namespace API_healthyMind.Controllers
             if (p.TamanoPagina > 100) 
                 p.TamanoPagina = 100;
 
-            var query = _uow.Psicologo.Query()
-                        .Where(c => c.PsiEstadoRegistro == "activo");
+            var query = _uow.Psicologo.Query();
 
             var totalRegistros = await query.CountAsync();
 

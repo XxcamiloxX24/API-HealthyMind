@@ -1,6 +1,7 @@
 ﻿using API_healthyMind.Data;
 using API_healthyMind.Models;
 using API_healthyMind.Models.DTO;
+using API_healthyMind.Models.DTO.Filtros;
 using API_healthyMind.Repositorios.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;

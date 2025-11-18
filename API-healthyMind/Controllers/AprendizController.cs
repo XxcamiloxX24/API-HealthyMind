@@ -1,6 +1,7 @@
 ﻿using API_healthyMind.Data;
 using API_healthyMind.Models;
 using API_healthyMind.Models.DTO;
+using API_healthyMind.Models.DTO.Filtros;
 using API_healthyMind.Repositorios.Interfaces;
 using API_healthyMind.Services;
 using Microsoft.AspNetCore.Http;
@@ -155,8 +156,7 @@ namespace API_healthyMind.Controllers
                         .Include(c => c.Municipio)
                             .ThenInclude(c => c.Regional)
                         .Include(c => c.EstadoAprendiz)
-                        .OrderBy(a => a.AprNombre)
-                        .Where(c => c.AprEstadoRegistro == "activo"); // Orden para paginar estable
+                        .OrderBy(a => a.AprNombre); // Orden para paginar estable
 
             var totalRegistros = await query.CountAsync();
 

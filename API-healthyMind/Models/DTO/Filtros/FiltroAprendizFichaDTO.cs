@@ -1,4 +1,4 @@
-﻿namespace API_healthyMind.Models.DTO
+﻿namespace API_healthyMind.Models.DTO.Filtros
 {
     public class FiltroAprendizFichaDTO
     {

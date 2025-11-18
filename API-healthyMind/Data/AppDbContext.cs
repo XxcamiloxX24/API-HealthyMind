@@ -401,6 +401,9 @@ public partial class AppDbContext : DbContext
                 .HasComment("Motivo de la cita")
                 .HasColumnType("text")
                 .HasColumnName("cit_motivo");
+            entity.Property(e => e.CitMotivoSolicitud)
+                .HasMaxLength(200)
+                .HasColumnName("cit_motivo_solicitud");
             entity.Property(e => e.CitPsiCodFk)
                 .HasComment("Psicologo")
                 .HasColumnType("int(40)")

@@ -33,7 +33,10 @@ public partial class Cita
     /// <summary>
     /// Motivo de la cita
     /// </summary>
+    public string? CitMotivoSolicitud {  get; set; }
     public string? CitMotivo { get; set; }
+
+
 
     /// <summary>
     /// Anotaciones u observaciones antes o despues de la atencio
