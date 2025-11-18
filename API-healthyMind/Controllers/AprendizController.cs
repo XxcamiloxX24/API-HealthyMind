@@ -26,6 +26,12 @@ namespace API_healthyMind.Controllers
             _emailService = emailService;
         }
 
+        public class PaginacionDTO
+        {
+            public int Pagina { get; set; } = 1;
+            public int TamanoPagina { get; set; } = 10;
+        }
+
         private static object MapearAprendiz(Aprendiz d)
         {
             return new
@@ -137,6 +143,39 @@ namespace API_healthyMind.Controllers
 
             return Ok(resultado);
         }
+
+
+        [HttpGet("listar")]
+        public async Task<IActionResult> ListarAprendices([FromQuery] PaginacionDTO p)
+        {
+            if (p.TamanoPagina > 100) // límite de seguridad opcional
+                p.TamanoPagina = 100;
+
+            var query = _uow.Aprendiz.Query()
+                        .Include(c => c.Municipio)
+                            .ThenInclude(c => c.Regional)
+                        .Include(c => c.EstadoAprendiz)
+                        .OrderBy(a => a.AprNombre)
+                        .Where(c => c.AprEstadoRegistro == "activo"); // Orden para paginar estable
+
+            var totalRegistros = await query.CountAsync();
+
+            var datos = await query
+                .Skip((p.Pagina - 1) * p.TamanoPagina)
+                .Take(p.TamanoPagina)
+                .ToListAsync();
+
+            return Ok(new
+            {
+                paginaActual = p.Pagina,
+                tamanoPagina = p.TamanoPagina,
+                totalRegistros,
+                totalPaginas = (int)Math.Ceiling(totalRegistros / (double)p.TamanoPagina),
+                datos
+            });
+        }
+
+
 
         [HttpGet("{id}")]
         public async Task<IActionResult> ObtenerPorId(int id)

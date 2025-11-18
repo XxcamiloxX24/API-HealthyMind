@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
+using static API_healthyMind.Controllers.AprendizController;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace API_healthyMind.Controllers
@@ -149,6 +150,63 @@ namespace API_healthyMind.Controllers
             });
 
             return Ok(resultados);
+        }
+
+        [HttpGet("listar")]
+        public async Task<IActionResult> ListarSeguimientos([FromQuery] PaginacionDTO p)
+        {
+            if (p.TamanoPagina > 100) // límite de seguridad opcional
+                p.TamanoPagina = 100;
+
+            var query = _uow.SeguimientoAprendiz.Query()
+                        .Include(c => c.SegAprendizFkNavigation)
+                            .ThenInclude(c => c.Aprendiz)
+                                .ThenInclude(c => c.Municipio)
+                                    .ThenInclude(c => c.Regional)
+                        .Include(c => c.SegAprendizFkNavigation.Aprendiz.EstadoAprendiz)
+                        .Include(c => c.SegAprendizFkNavigation.Ficha)
+                            .ThenInclude(c => c.programaFormacion)
+                               .ThenInclude(c => c.Centro)
+                        .Include(c => c.SegAprendizFkNavigation.Ficha)
+                            .ThenInclude(c => c.programaFormacion)
+                                .ThenInclude(c => c.NivelFormacion)
+                        .Include(c => c.SegAprendizFkNavigation.Ficha)
+                            .ThenInclude(c => c.programaFormacion)
+                                .ThenInclude(c => c.Area)
+                        .Include(c => c.SegPsicologoFkNavigation)
+                        .Where(c => c.SegEstadoRegistro == "activo"); // Orden para paginar estable
+
+            var totalRegistros = await query.CountAsync();
+
+            var datos = await query
+                .Skip((p.Pagina - 1) * p.TamanoPagina)
+                .Take(p.TamanoPagina)
+                .ToListAsync();
+
+            var resultados = datos.Select(c => new
+            {
+                c.SegCodigo,
+                aprendiz = MapearAprendizFicha(c.SegAprendizFkNavigation),
+                psicologo = c.SegPsicologoFkNavigation,
+                FechaInicioSeguimiento = c.SegFechaSeguimiento,
+                FechaFinSeguimiento = c.SegFechaFin,
+                AreaRemitido = c.SegAreaRemitido,
+                TrimestreActual = c.SegTrimestreActual,
+                Motivo = c.SegMotivo,
+                Descripcion = c.SegDescripcion,
+                Recomendaciones = c.SegRecomendaciones,
+                FirmaProfesional = c.SegFirmaProfesional,
+                FirmaAprendiz = c.SegFirmaAprendiz
+            });
+
+            return Ok(new
+            {
+                paginaActual = p.Pagina,
+                tamanoPagina = p.TamanoPagina,
+                totalRegistros,
+                totalPaginas = (int)Math.Ceiling(totalRegistros / (double)p.TamanoPagina),
+                resultados
+            });
         }
 
 

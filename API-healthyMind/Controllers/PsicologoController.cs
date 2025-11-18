@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using static API_healthyMind.Controllers.AprendizController;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace API_healthyMind.Controllers
@@ -33,7 +34,33 @@ namespace API_healthyMind.Controllers
             
             return Ok(datos);
         }
-        
+
+        [HttpGet("listar")]
+        public async Task<IActionResult> ListarPsicologos([FromQuery] PaginacionDTO p)
+        {
+            if (p.TamanoPagina > 100) 
+                p.TamanoPagina = 100;
+
+            var query = _uow.Psicologo.Query()
+                        .Where(c => c.PsiEstadoRegistro == "activo");
+
+            var totalRegistros = await query.CountAsync();
+
+            var datos = await query
+                .Skip((p.Pagina - 1) * p.TamanoPagina)
+                .Take(p.TamanoPagina)
+                .ToListAsync();
+
+            return Ok(new
+            {
+                paginaActual = p.Pagina,
+                tamanoPagina = p.TamanoPagina,
+                totalRegistros,
+                totalPaginas = (int)Math.Ceiling(totalRegistros / (double)p.TamanoPagina),
+                datos
+            });
+        }
+
         [HttpGet("{id}")]
         public async Task<IActionResult> ObtenerPorDocumento(int documento)
         {
