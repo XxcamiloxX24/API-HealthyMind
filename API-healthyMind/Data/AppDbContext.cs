@@ -855,6 +855,12 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.SegTrimestreActual)
                 .HasColumnType("int(11)")
                 .HasColumnName("seg_trimestre_actual");
+            entity.Property(e => e.SegFirmaProfesional)
+                .HasMaxLength(100)
+                .HasColumnName("seg_firma_profesional");
+            entity.Property(e => e.SegFirmaAprendiz)
+                .HasMaxLength(100)
+                .HasColumnName("seg_firma_aprendiz");
 
             entity.HasOne(d => d.SegAprendizFkNavigation).WithMany(p => p.SeguimientoAprendizs)
                 .HasForeignKey(d => d.SegAprendizFk)

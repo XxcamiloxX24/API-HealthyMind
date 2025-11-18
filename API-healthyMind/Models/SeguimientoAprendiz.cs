@@ -23,12 +23,12 @@ public partial class SeguimientoAprendiz
     /// <summary>
     /// Fecha de inicio del seguimiento
     /// </summary>
-    public DateOnly? SegFechaSeguimiento { get; set; }
+    public DateTime? SegFechaSeguimiento { get; set; }
 
     /// <summary>
     /// Fecha final del seguimiento
     /// </summary>
-    public DateOnly? SegFechaFin { get; set; }
+    public DateTime? SegFechaFin { get; set; }
 
     public string? SegAreaRemitido { get; set; }
 
@@ -45,6 +45,8 @@ public partial class SeguimientoAprendiz
     /// recomendaciones para el aprendiz
     /// </summary>
     public string? SegRecomendaciones { get; set; }
+    public string? SegFirmaProfesional { get; set; }
+    public string? SegFirmaAprendiz { get; set; }
 
     public string? SegEstadoRegistro { get; set; }
 

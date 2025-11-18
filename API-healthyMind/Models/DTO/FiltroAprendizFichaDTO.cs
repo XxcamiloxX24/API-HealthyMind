@@ -11,5 +11,13 @@
         public int? EstadoAprendizID { get; set; }
         public string? CentroNombre { get; set; }
         public string? Jornada { get; set; }
+        public string? AreaRemitido { get; set; }
+        public int? TrimestreActual { get; set; }
+
+        public DateTime? FechaInicioDesde { get; set; }
+        public DateTime? FechaInicioHasta { get; set; }
+
+        public DateTime? FechaFinDesde { get; set; }
+        public DateTime? FechaFinHasta { get; set; }
     }
 }

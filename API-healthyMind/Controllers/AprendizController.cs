@@ -544,7 +544,7 @@ namespace API_healthyMind.Controllers
 
 
 
-        [HttpPut("editar-informacion")]
+        [HttpPut("editar-informacion/{documento}")]
         public async Task<IActionResult> EditarInformacion(int Documento, [FromBody] AprendizEditarDTO dto)
         {
             var aprEncontrado = await _uow.Aprendiz.ObtenerTodoConCondicion(a => a.AprNroDocumento == Documento && a.AprEstadoRegistro == "activo");
@@ -600,7 +600,7 @@ namespace API_healthyMind.Controllers
         }
 
 
-        [HttpPut("eliminar-usuario")]
+        [HttpPut("eliminar-usuario/{documento}")]
         public async Task<IActionResult> EliminarAprendiz(int documento, [FromBody] RazonEliminacionDTO dto)
         {
             var aprEncontrado = await _uow.Aprendiz.ObtenerTodoConCondicion(a => a.AprNroDocumento == documento && a.AprEstadoRegistro == "activo");
