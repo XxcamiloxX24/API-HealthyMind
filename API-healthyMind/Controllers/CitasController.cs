@@ -124,9 +124,9 @@ namespace API_healthyMind.Controllers
         {
             var datos = await _uow.Citas.ObtenerTodoConCondicion(e => e.CitEstadoRegistro == "activo",
                 e => e.Include(c => c.CitAprCodFkNavigation)
-                    .ThenInclude(c => c.Aprendiz)
-                        .ThenInclude(c => c.Municipio)
-                            .ThenInclude(c => c.Regional)
+                        .ThenInclude(c => c.Aprendiz)
+                            .ThenInclude(c => c.Municipio)
+                                .ThenInclude(c => c.Regional)
                       .Include(c => c.CitAprCodFkNavigation.Aprendiz.EstadoAprendiz)
                       .Include(c => c.CitAprCodFkNavigation.Ficha)
                         .ThenInclude(c => c.programaFormacion)
@@ -303,8 +303,11 @@ namespace API_healthyMind.Controllers
             }
 
             if (!string.IsNullOrEmpty(f.TipoCita))
-                q = q.Where(x => x.CitTipoCita == f.TipoCita.ToLower());
-            
+                q = q.Where(x => x.CitTipoCita.ToLower() == f.TipoCita.ToLower());
+
+            if (!string.IsNullOrEmpty(f.EstadoCita))
+                q = q.Where(x => x.CitEstadoCita.ToLower() == f.EstadoCita.ToLower());
+
 
             q = q.Where(x => x.CitEstadoRegistro.ToLower() == "activo");
 
@@ -411,6 +414,11 @@ namespace API_healthyMind.Controllers
             }
 
             var datosAprendiz = await _uow.AprendizFicha.Query()
+                                            .Include(c => c.Aprendiz)
+                                                .ThenInclude(c => c.EstadoAprendiz)
+                                            .Include(c => c.Aprendiz)
+                                                .ThenInclude(c => c.Municipio)
+                                                    .ThenInclude(c => c.Regional)
                                             .Include(x => x.Ficha)
                                                 .ThenInclude(f => f.programaFormacion)
                                                     .ThenInclude(p => p.Area)
@@ -421,8 +429,29 @@ namespace API_healthyMind.Controllers
                         .programaFormacion
                         .Area
                         .AreaPsicologo;
+            
+            if (datosAprendiz == null)
+                return NotFound("No existe ningún registro de AprendizFicha para el aprendiz con ese documento.");
+
+            if (datosAprendiz.Aprendiz == null)
+                return BadRequest("El aprendiz existe en AprendizFicha pero no tiene datos en la tabla Aprendiz.");
+
+            if (datosAprendiz.Ficha == null)
+                return BadRequest("El aprendiz no tiene ficha asociada.");
+
+            if (datosAprendiz.Ficha.programaFormacion == null)
+                return BadRequest("La ficha del aprendiz no tiene un programa de formación asociado.");
+
+            if (datosAprendiz.Ficha.programaFormacion.Area == null)
+                return BadRequest("El programa de formación no tiene un área asociada.");
+
+            if (datosAprendiz.Ficha.programaFormacion.Area.AreaPsicologo == null)
+                return BadRequest("El área del programa no tiene un psicólogo asignado.");
+
+            
             var soli = new Cita
             {
+                CitTipoCita = dto.TipoCita,
                 CitFechaCreacion = DateTime.Now,
                 CitMotivoSolicitud = dto.MotivoSolicitud,
                 CitEstadoCita = "pendiente",
@@ -431,21 +460,21 @@ namespace API_healthyMind.Controllers
             };
             await _uow.Citas.Agregar(soli);
             await _uow.SaveChangesAsync();
-
+            
             return Ok(new
             {
                 Mensaje = "Se ha solicitado una cita correctamente",
-                soli
+                datosAprendiz
             });
 
 
         }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> EditarInformacion(int id, [FromBody] SeguimientoAprendizDTO dto)
+        [HttpPut("editar-solicitudes/{id}")]
+        public async Task<IActionResult> EditarInformacion(int id, [FromBody] CitaDTO dto)
         {
-            var regEncontrado = await _uow.SeguimientoAprendiz.ObtenerTodoConCondicion(a => a.SegCodigo == id 
-            && a.SegEstadoRegistro == "activo");
+            var regEncontrado = await _uow.Citas.ObtenerTodoConCondicion(a => a.CitCodigo == id 
+            && a.CitEstadoCita == "pendiente" && a.CitEstadoRegistro == "activo");
 
             if (!regEncontrado.Any())
             {
@@ -454,22 +483,49 @@ namespace API_healthyMind.Controllers
 
             var resultado = regEncontrado.FirstOrDefault();
 
-
-            resultado.SegAprendizFk = dto.SegAprendizFk;
-            resultado.SegPsicologoFk = dto.SegPsicologoFk;
-            resultado.SegFechaSeguimiento = dto.SegFechaSeguimiento;
-            resultado.SegFechaFin = dto.SegFechaFin;
-            resultado.SegAreaRemitido = dto.SegAreaRemitido;
-            resultado.SegTrimestreActual = dto.SegTrimestreActual;
-            resultado.SegMotivo = dto.SegMotivo;
-            resultado.SegDescripcion = dto.SegDescripcion;
-            resultado.SegRecomendaciones = dto.SegRecomendaciones;
-            resultado.SegFirmaProfesional = dto.SegFirmaProfesional;
-            resultado.SegFirmaAprendiz = dto.SegFirmaAprendiz;
+            resultado.CitTipoCita = dto.CitTipoCita;
+            resultado.CitFechaProgramada = dto.CitFechaProgramada;
+            resultado.CitHoraInicio = dto.CitHoraInicio;
+            resultado.CitHoraFin = dto.CitHoraFin;
+            resultado.CitMotivo = dto.CitMotivo;
+            resultado.CitAnotaciones = dto.CitAnotaciones;
+            resultado.CitEstadoCita = dto.CitEstadoCita;
 
 
 
-            _uow.SeguimientoAprendiz.Actualizar(resultado);
+            _uow.Citas.Actualizar(resultado);
+            await _uow.SaveChangesAsync();
+
+            return Ok(new
+            {
+                mensaje = "Se han editado correctamente los datos!",
+                resultado
+            });
+        }
+
+        [HttpPut("editar/{id}")]
+        public async Task<IActionResult> Editar(int id, [FromBody] CitaDTO dto)
+        {
+            var regEncontrado = await _uow.Citas.ObtenerTodoConCondicion(a => a.CitCodigo == id && a.CitEstadoRegistro == "activo");
+
+            if (!regEncontrado.Any())
+            {
+                return NotFound("No se encontró este aprendiz");
+            }
+
+            var resultado = regEncontrado.FirstOrDefault();
+
+            resultado.CitTipoCita = dto.CitTipoCita;
+            resultado.CitFechaProgramada = dto.CitFechaProgramada;
+            resultado.CitHoraInicio = dto.CitHoraInicio;
+            resultado.CitHoraFin = dto.CitHoraFin;
+            resultado.CitMotivo = dto.CitMotivo;
+            resultado.CitAnotaciones = dto.CitAnotaciones;
+            resultado.CitEstadoCita = dto.CitEstadoCita;
+
+
+
+            _uow.Citas.Actualizar(resultado);
             await _uow.SaveChangesAsync();
 
             return Ok(new
@@ -483,14 +539,14 @@ namespace API_healthyMind.Controllers
         [HttpPut("eliminar/{id}")]
         public async Task<IActionResult> EliminarRegistro(int id)
         {
-            var regEncontrado = (await _uow.SeguimientoAprendiz.ObtenerTodoConCondicion(a => a.SegCodigo == id && a.SegEstadoRegistro == "activo")).FirstOrDefault();
+            var regEncontrado = (await _uow.Citas.ObtenerTodoConCondicion(a => a.CitCodigo == id && a.CitEstadoRegistro == "activo")).FirstOrDefault();
 
             if (regEncontrado == null)
                 return NotFound("No se encontró este id.");
 
-            regEncontrado.SegEstadoRegistro = "inactivo";
+            regEncontrado.CitEstadoRegistro = "inactivo";
 
-            _uow.SeguimientoAprendiz.Actualizar(regEncontrado);
+            _uow.Citas.Actualizar(regEncontrado);
             await _uow.SaveChangesAsync();
             return Ok("Se ha eliminado correctamente ");
 

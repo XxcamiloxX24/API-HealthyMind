@@ -11,7 +11,7 @@
         public int? EstadoAprendizID { get; set; }
         public string? CentroNombre { get; set; }
         public string? Jornada { get; set; }
-
+        public string? EstadoCita { get; set; }
         public string? TipoCita {  get; set; }
         public DateOnly? fechaProgramada { get; set; }
 
