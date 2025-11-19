@@ -639,7 +639,7 @@ public partial class AppDbContext : DbContext
                 .HasColumnType("enum('activo','inactivo')")
                 .HasColumnName("preg_estado_registro");
 
-            entity.HasOne(d => d.PregCategoriaFkNavigation).WithMany(p => p.Pregunta)
+            entity.HasOne(d => d.CategoriaPregunta).WithMany(p => p.Pregunta)
                 .HasForeignKey(d => d.PregCategoriaFk)
                 .HasConstraintName("pregunta_ibfk_1");
         });
@@ -804,7 +804,7 @@ public partial class AppDbContext : DbContext
                 .HasColumnType("enum('activo','inactivo')")
                 .HasColumnName("res_estado_registro");
 
-            entity.HasOne(d => d.ResCategoriaFkNavigation).WithMany(p => p.Respuesta)
+            entity.HasOne(d => d.CategoriaRespuesta).WithMany(p => p.Respuesta)
                 .HasForeignKey(d => d.ResCategoriaFk)
                 .HasConstraintName("respuesta_ibfk_1");
         });
