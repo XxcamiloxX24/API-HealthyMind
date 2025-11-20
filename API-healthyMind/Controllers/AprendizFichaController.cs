@@ -202,12 +202,11 @@ namespace API_healthyMind.Controllers
             if (!datos.Any())
                 return NotFound("No se encontraron resultados con esos filtros.");
 
-            var resultado = datos.Select(MapearAprendizFicha); // ⬅ EXACTO FORMATO QUE PEDISTE
+            var resultado = datos.Select(MapearAprendizFicha);
 
             return Ok(resultado);
         }
-
-
+        
 
         [HttpGet("estadistica/por-ficha")]
         public async Task<IActionResult> GetRegistrosPorMes()

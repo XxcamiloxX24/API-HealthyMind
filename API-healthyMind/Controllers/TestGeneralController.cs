@@ -1,6 +1,7 @@
 ﻿using API_healthyMind.Data;
 using API_healthyMind.Models;
 using API_healthyMind.Models.DTO;
+using API_healthyMind.Models.DTO.Filtros;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -98,6 +99,19 @@ namespace API_healthyMind.Controllers
             };
         }
 
+        private static object MapearTestGeneral(TestGeneral d)
+        {
+            return new
+            {
+                d.TestGenCodigo,
+                AprendizTest = MapearAprendizFicha(d.TestGenApreFkNavigation),
+                Psicologo = d.TestGenPsicoFkNavigation,
+                FechaRealizado = d.TestGenFechaRealiz,
+                Resultados = d.TestGenResultados,
+                Recomendaciones = d.TestGenRecomendacion
+            };
+        }
+
         [HttpGet]
         public async Task<IActionResult> ObtenerTodos()
         {
@@ -141,134 +155,119 @@ namespace API_healthyMind.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> ObtenerPorId(int id)
         {
-            var datos = await _uow.ProgramaFormacion.ObtenerTodoConCondicion(e => e.ProgEstadoRegistro == "activo" && e.ProgCodigo == id,
-                e => e.Include(c => c.Area)
-                            .ThenInclude(c => c.AreaPsicologo)
-                        .Include(c => c.Centro)
+            var datos = await _uow.TestGeneral.ObtenerTodoConCondicion(e => e.TestGenEstado == "activo" && e.TestGenCodigo == id,
+                e => e.Include(c => c.TestGenApreFkNavigation)
+                    .ThenInclude(c => c.Aprendiz)
+                        .ThenInclude(c => c.Municipio)
                             .ThenInclude(c => c.Regional)
-                        .Include(c => c.NivelFormacion)
-                );
+                      .Include(c => c.TestGenApreFkNavigation.Aprendiz.EstadoAprendiz)
+                      .Include(c => c.TestGenApreFkNavigation.Ficha)
+                        .ThenInclude(c => c.programaFormacion)
+                            .ThenInclude(c => c.Centro)
+                        .Include(c => c.TestGenApreFkNavigation.Ficha)
+                            .ThenInclude(c => c.programaFormacion)
+                                .ThenInclude(c => c.NivelFormacion)
+                        .Include(c => c.TestGenApreFkNavigation.Ficha)
+                            .ThenInclude(c => c.programaFormacion)
+                                .ThenInclude(c => c.Area)
+                        .Include(c => c.TestGenPsicoFkNavigation)
+                        );
 
-            if (datos == null || !datos.Any())
+
+            if (!datos.Any() || datos == null)
             {
-                return NotFound("No se encontró este elemento");
+                return NotFound("No se encontró ningun registro!");
             }
 
-            return Ok(datos);
+            var resultados = datos.Select(c => new
+            {
+                c.TestGenCodigo,
+                aprendiz = MapearAprendizFicha(c.TestGenApreFkNavigation),
+                psicologo = c.TestGenPsicoFkNavigation,
+                FechaRealizacion = c.TestGenFechaRealiz,
+                Resultados = c.TestGenResultados,
+                Recomendaciones = c.TestGenRecomendacion
+            });
+
+            return Ok(resultados);
         }
 
-        [HttpGet("nombre/{nombre}")]
-        public async Task<IActionResult> ObtenerPorNombre(string nombre)
+        [HttpGet("buscar")]
+        public async Task<IActionResult> Buscar([FromQuery] FiltroTestGeneralDTO f)
         {
-            var datos = await _uow.ProgramaFormacion.ObtenerTodoConCondicion(e => e.ProgEstadoRegistro == "activo" && e.ProgNombre.ToLower() == nombre.ToLower(),
-                e => e.Include(c => c.Area)
-                            .ThenInclude(c => c.AreaPsicologo)
-                        .Include(c => c.Centro)
+            IQueryable<TestGeneral> q = _uow.TestGeneral.Query()
+                .Include(c => c.TestGenApreFkNavigation)
+                    .ThenInclude(c => c.Aprendiz)
+                        .ThenInclude(c => c.Municipio)
                             .ThenInclude(c => c.Regional)
-                        .Include(c => c.NivelFormacion)
-                );
+                      .Include(c => c.TestGenApreFkNavigation.Aprendiz.EstadoAprendiz)
+                      .Include(c => c.TestGenApreFkNavigation.Ficha)
+                        .ThenInclude(c => c.programaFormacion)
+                            .ThenInclude(c => c.Centro)
+                        .Include(c => c.TestGenApreFkNavigation.Ficha)
+                            .ThenInclude(c => c.programaFormacion)
+                                .ThenInclude(c => c.NivelFormacion)
+                        .Include(c => c.TestGenApreFkNavigation.Ficha)
+                            .ThenInclude(c => c.programaFormacion)
+                                .ThenInclude(c => c.Area)
+                        .Include(c => c.TestGenPsicoFkNavigation);
 
-            if (datos == null || !datos.Any())
+            if (f.Codigo.HasValue)
+                q = q.Where(x => x.TestGenApreFkNavigation.Aprendiz.AprCodigo == f.Codigo.Value);
+
+            if (!string.IsNullOrEmpty(f.TipoDocumento))
+                q = q.Where(x => x.TestGenApreFkNavigation.Aprendiz.AprTipoDocumento == f.TipoDocumento);
+
+            if (f.NroDocumento.HasValue)
+                q = q.Where(x => x.TestGenApreFkNavigation.Aprendiz.AprNroDocumento == f.NroDocumento.Value);
+
+            if (!string.IsNullOrEmpty(f.PrimerNombre))
+                q = q.Where(x => x.TestGenApreFkNavigation.Aprendiz.AprNombre.ToLower().Contains(f.PrimerNombre.ToLower()));
+
+            if (!string.IsNullOrEmpty(f.PrimerApellido))
+                q = q.Where(x => x.TestGenApreFkNavigation.Aprendiz.AprApellido.ToLower().Contains(f.PrimerApellido.ToLower()));
+
+            if (!string.IsNullOrEmpty(f.MunicipioNombre))
+                q = q.Where(x => x.TestGenApreFkNavigation.Aprendiz.Municipio.CiuNombre.ToLower() == f.MunicipioNombre.ToLower());
+
+            if (!string.IsNullOrEmpty(f.DepartamentoNombre))
+                q = q.Where(x => x.TestGenApreFkNavigation.Aprendiz.Municipio.Regional.RegNombre.ToLower() == f.DepartamentoNombre.ToLower());
+
+            if (f.EstadoAprendizID.HasValue)
+                q = q.Where(x => x.TestGenApreFkNavigation.Aprendiz.EstadoAprendiz.EstAprCodigo == f.EstadoAprendizID.Value);
+
+            if (!string.IsNullOrEmpty(f.Eps))
+                q = q.Where(x => x.TestGenApreFkNavigation.Aprendiz.AprEps.ToLower() == f.Eps.ToLower());
+
+            if (!string.IsNullOrEmpty(f.TipoPoblacion))
+                q = q.Where(x => x.TestGenApreFkNavigation.Aprendiz.AprTipoPoblacion.ToLower() == f.TipoPoblacion.ToLower());
+
+            if (f.PsicologoDocumento.HasValue)
+                q = q.Where(x => x.TestGenPsicoFkNavigation.PsiDocumento == f.PsicologoDocumento.Value);
+
+            if (f.FechaRealizacionDesde.HasValue)
             {
-                return NotFound("No se encontró este elemento");
+                var desde = f.FechaRealizacionDesde.Value.Date;
+                q = q.Where(x => x.TestGenFechaRealiz.HasValue && x.TestGenFechaRealiz.Value.Date >= desde);
             }
 
-            return Ok(datos);
-        }
-
-        [HttpGet("modalidad/{nombre}")]
-        public async Task<IActionResult> ObtenerPorModalidad(string nombre)
-        {
-            var datos = await _uow.ProgramaFormacion.ObtenerTodoConCondicion(e => e.ProgEstadoRegistro == "activo" && e.ProgModalidad.ToLower() == nombre.ToLower(),
-                e => e.Include(c => c.Area)
-                            .ThenInclude(c => c.AreaPsicologo)
-                        .Include(c => c.Centro)
-                            .ThenInclude(c => c.Regional)
-                        .Include(c => c.NivelFormacion)
-                );
-
-            if (datos == null || !datos.Any())
+            if (f.FechaRealizacionHasta.HasValue)
             {
-                return NotFound("No se encontró ningún elemento");
+                var hasta = f.FechaRealizacionHasta.Value.Date;
+                q = q.Where(x => x.TestGenFechaRealiz.HasValue && x.TestGenFechaRealiz.Value.Date <= hasta);
             }
 
-            return Ok(datos);
-        }
 
-        [HttpGet("formaModalidad/{nombre}")]
-        public async Task<IActionResult> ObtenerPorformaModalidad(string nombre)
-        {
-            var datos = await _uow.ProgramaFormacion.ObtenerTodoConCondicion(e => e.ProgEstadoRegistro == "activo" && e.ProgFormaModalidad.ToLower() == nombre.ToLower(),
-                e => e.Include(c => c.Area)
-                            .ThenInclude(c => c.AreaPsicologo)
-                        .Include(c => c.Centro)
-                            .ThenInclude(c => c.Regional)
-                        .Include(c => c.NivelFormacion)
-                );
 
-            if (datos == null || !datos.Any())
-            {
-                return NotFound("No se encontró ningún elemento");
-            }
 
-            return Ok(datos);
-        }
+            var datos = await q.ToListAsync();
 
-        [HttpGet("area/{nombre}")]
-        public async Task<IActionResult> ObtenerPorArea(string nombre)
-        {
-            var datos = await _uow.ProgramaFormacion.ObtenerTodoConCondicion(e => e.ProgEstadoRegistro == "activo" && e.Area.AreaNombre.ToLower() == nombre.ToLower(),
-                e => e.Include(c => c.Area)
-                            .ThenInclude(c => c.AreaPsicologo)
-                        .Include(c => c.Centro)
-                            .ThenInclude(c => c.Regional)
-                        .Include(c => c.NivelFormacion)
-                );
+            if (!datos.Any())
+                return NotFound("No se encontraron resultados con esos filtros.");
 
-            if (datos == null || !datos.Any())
-            {
-                return NotFound("No se encontró ningún elemento");
-            }
+            var resultados = datos.Select(MapearTestGeneral);
 
-            return Ok(datos);
-        }
-
-        [HttpGet("nivelFormacion/{nombre}")]
-        public async Task<IActionResult> ObtenerPornivelFormacion(string nombre)
-        {
-            var datos = await _uow.ProgramaFormacion.ObtenerTodoConCondicion(e => e.ProgEstadoRegistro == "activo" && e.NivelFormacion.NivForNombre.ToLower() == nombre.ToLower(),
-                e => e.Include(c => c.Area)
-                            .ThenInclude(c => c.AreaPsicologo)
-                        .Include(c => c.Centro)
-                            .ThenInclude(c => c.Regional)
-                        .Include(c => c.NivelFormacion)
-                );
-
-            if (datos == null || !datos.Any())
-            {
-                return NotFound("No se encontró ningún elemento");
-            }
-
-            return Ok(datos);
-        }
-
-        [HttpGet("centro/{id}")]
-        public async Task<IActionResult> ObtenerPorCentro(int id)
-        {
-            var datos = await _uow.ProgramaFormacion.ObtenerTodoConCondicion(e => e.ProgEstadoRegistro == "activo" && e.Centro.CenCodigo == id,
-                e => e.Include(c => c.Area)
-                            .ThenInclude(c => c.AreaPsicologo)
-                        .Include(c => c.Centro)
-                            .ThenInclude(c => c.Regional)
-                        .Include(c => c.NivelFormacion)
-                );
-
-            if (datos == null || !datos.Any())
-            {
-                return NotFound("No se encontró ningún elemento");
-            }
-
-            return Ok(datos);
+            return Ok(resultados);
         }
 
 
