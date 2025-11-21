@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace API_healthyMind.Models;
 
@@ -25,5 +26,6 @@ public partial class Emociones
     /// </summary>
     public string? EmoImage { get; set; }
 
+    [JsonIgnore]
     public virtual ICollection<PaginaDiario> PaginaDiarios { get; set; } = new List<PaginaDiario>();
 }
