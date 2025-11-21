@@ -213,7 +213,7 @@ namespace API_healthyMind.Controllers
                         .Include(c => c.TestGenPsicoFkNavigation);
 
             if (f.Codigo.HasValue)
-                q = q.Where(x => x.TestGenApreFkNavigation.Aprendiz.AprCodigo == f.Codigo.Value);
+                q = q.Where(x => x.TestGenCodigo == f.Codigo.Value);
 
             if (!string.IsNullOrEmpty(f.TipoDocumento))
                 q = q.Where(x => x.TestGenApreFkNavigation.Aprendiz.AprTipoDocumento == f.TipoDocumento);
@@ -273,34 +273,43 @@ namespace API_healthyMind.Controllers
 
 
         [HttpPost]
-        public async Task<IActionResult> CrearPrograma([FromBody] ProgramaFormacionDTO nuevoPrograma)
+        public async Task<IActionResult> CrearTestGeneral([FromBody] TestGeneralDTO nuevoRegistro)
         {
 
-            if (nuevoPrograma == null)
+            if (nuevoRegistro == null)
             {
                 return BadRequest("El cuerpo no puede ser nulo.");
             }
 
-            var programNew = new Programaformacion
+            var testNew = new TestGeneral
             {
-                ProgNombre = nuevoPrograma.ProgNombre,
-                ProgModalidad = nuevoPrograma.ProgModalidad,
-                ProgFormaModalidad = nuevoPrograma.ProgFormaModalidad,
-                ProgNivFormFk = nuevoPrograma.ProgNivFormFk,
-                ProgAreaFk = nuevoPrograma.ProgAreaFk,
-                ProgCentroFk = nuevoPrograma.ProgCentroFk
+                TestGenApreFk = nuevoRegistro.TestGenApreFk,
+                TestGenPsicoFk = nuevoRegistro.TestGenPsicoFk,
+                TestGenFechaRealiz = nuevoRegistro.TestGenFechaRealiz,
+                TestGenResultados = nuevoRegistro.TestGenResultados,
+                TestGenRecomendacion= nuevoRegistro.TestGenRecomendacion
             };
-            await _uow.ProgramaFormacion.Agregar(programNew);
+            await _uow.TestGeneral.Agregar(testNew);
             await _uow.SaveChangesAsync();
 
 
 
-            var datos = await _uow.ProgramaFormacion.ObtenerTodoConCondicion(e => e.ProgEstadoRegistro == "activo" && e.ProgCodigo == programNew.ProgCodigo,
-                e => e.Include(c => c.Area)
-                            .ThenInclude(c => c.AreaPsicologo)
-                        .Include(c => c.Centro)
-                            .ThenInclude(c => c.Regional)
-                        .Include(c => c.NivelFormacion)
+            var datos = await _uow.TestGeneral.ObtenerTodoConCondicion(e => e.TestGenEstado == "activo" && e.TestGenCodigo == testNew.TestGenCodigo,
+                e => e.Include(c => c.TestGenApreFkNavigation)
+                        .ThenInclude(c => c.Aprendiz)
+                            .ThenInclude(c => c.Municipio)
+                                .ThenInclude(c => c.Regional)
+                        .Include(c => c.TestGenApreFkNavigation.Aprendiz.EstadoAprendiz)
+                        .Include(c => c.TestGenApreFkNavigation.Ficha)
+                            .ThenInclude(c => c.programaFormacion)
+                                .ThenInclude(c => c.Centro)
+                        .Include(c => c.TestGenApreFkNavigation.Ficha)
+                            .ThenInclude(c => c.programaFormacion)
+                                .ThenInclude(c => c.NivelFormacion)
+                        .Include(c => c.TestGenApreFkNavigation.Ficha)
+                            .ThenInclude(c => c.programaFormacion)
+                                .ThenInclude(c => c.Area)
+                        .Include(c => c.TestGenPsicoFkNavigation)
                 );
 
             if (datos == null || !datos.Any())
@@ -316,35 +325,45 @@ namespace API_healthyMind.Controllers
         }
 
         [HttpPut("editar/{id}")]
-        public async Task<IActionResult> EditarPrograma(int id, [FromBody] ProgramaFormacionDTO programaRecibido)
+        public async Task<IActionResult> EditarTest(int id, [FromBody] TestGeneralDTO nuevoRegistro)
         {
             if (id.ToString() == "")
             {
                 return BadRequest("El ID no debe ser nulo");
             }
-            var programaEncontrado = await _uow.ProgramaFormacion.ObtenerPorID(id);
+            var testEncontrado = await _uow.TestGeneral.ObtenerPorID(id);
             
-            if (programaEncontrado == null || programaEncontrado.ProgEstadoRegistro == "inactivo")
+            if (testEncontrado == null || testEncontrado.TestGenEstado == "inactivo")
             {
                 return NotFound("No se encontró este ID");
             }
 
-            programaEncontrado.ProgNombre = programaRecibido.ProgNombre;
-            programaEncontrado.ProgModalidad = programaRecibido.ProgModalidad;
-            programaEncontrado.ProgFormaModalidad = programaRecibido.ProgFormaModalidad;
-            programaEncontrado.ProgNivFormFk = programaRecibido.ProgNivFormFk;
-            programaEncontrado.ProgAreaFk = programaRecibido.ProgAreaFk;
-            programaEncontrado.ProgCentroFk = programaRecibido.ProgCentroFk;
+            testEncontrado.TestGenApreFk = nuevoRegistro.TestGenApreFk;
+            testEncontrado.TestGenPsicoFk = nuevoRegistro.TestGenPsicoFk;
+            testEncontrado.TestGenFechaRealiz = nuevoRegistro.TestGenFechaRealiz;
+            testEncontrado.TestGenResultados = nuevoRegistro.TestGenResultados;
+            testEncontrado.TestGenRecomendacion = nuevoRegistro.TestGenRecomendacion;
 
-            _uow.ProgramaFormacion.Actualizar(programaEncontrado);
+
+            _uow.TestGeneral.Actualizar(testEncontrado);
             await _uow.SaveChangesAsync();
 
-            var datos = await _uow.ProgramaFormacion.ObtenerTodoConCondicion(e => e.ProgEstadoRegistro == "activo" && e.ProgCodigo == programaEncontrado.ProgCodigo,
-                e => e.Include(c => c.Area)
-                            .ThenInclude(c => c.AreaPsicologo)
-                        .Include(c => c.Centro)
-                            .ThenInclude(c => c.Regional)
-                        .Include(c => c.NivelFormacion)
+            var datos = await _uow.TestGeneral.ObtenerTodoConCondicion(e => e.TestGenEstado == "activo" && e.TestGenCodigo == testEncontrado.TestGenCodigo,
+                e => e.Include(c => c.TestGenApreFkNavigation)
+                        .ThenInclude(c => c.Aprendiz)
+                            .ThenInclude(c => c.Municipio)
+                                .ThenInclude(c => c.Regional)
+                        .Include(c => c.TestGenApreFkNavigation.Aprendiz.EstadoAprendiz)
+                        .Include(c => c.TestGenApreFkNavigation.Ficha)
+                            .ThenInclude(c => c.programaFormacion)
+                                .ThenInclude(c => c.Centro)
+                        .Include(c => c.TestGenApreFkNavigation.Ficha)
+                            .ThenInclude(c => c.programaFormacion)
+                                .ThenInclude(c => c.NivelFormacion)
+                        .Include(c => c.TestGenApreFkNavigation.Ficha)
+                            .ThenInclude(c => c.programaFormacion)
+                                .ThenInclude(c => c.Area)
+                        .Include(c => c.TestGenPsicoFkNavigation)
                 );
 
             if (datos == null || !datos.Any())
@@ -362,16 +381,16 @@ namespace API_healthyMind.Controllers
 
 
         [HttpPut("eliminar/{id}")]
-        public async Task<IActionResult> EliminarPrograma(int id)
+        public async Task<IActionResult> EliminarTest(int id)
         {
-            var programaEncontrado = await _uow.ProgramaFormacion.ObtenerPorID(id);
-            if (programaEncontrado.ProgEstadoRegistro == "inactivo" || programaEncontrado == null)
+            var testEncontrado = await _uow.TestGeneral.ObtenerPorID(id);
+            if (testEncontrado.TestGenEstado == "inactivo" || testEncontrado == null)
             {
                 return NotFound("No se encontró este ID");
             }
-            programaEncontrado.ProgEstadoRegistro = "inactivo";
+            testEncontrado.TestGenEstado = "inactivo";
 
-            _uow.ProgramaFormacion.Actualizar(programaEncontrado);
+            _uow.TestGeneral.Actualizar(testEncontrado);
             await _uow.SaveChangesAsync();
 
             return Ok("Se ha eliminado correctamente!");

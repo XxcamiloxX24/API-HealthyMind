@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace API_healthyMind.Models;
 
@@ -17,11 +18,15 @@ public partial class TestGeneral
 
     public string? TestGenRecomendacion { get; set; }
 
+    [JsonIgnore]
     public string? TestGenEstado { get; set; }
 
+    [JsonIgnore]
     public virtual AprendizFicha? TestGenApreFkNavigation { get; set; }
 
+    [JsonIgnore]
     public virtual Psicologo? TestGenPsicoFkNavigation { get; set; }
 
+    [JsonIgnore]
     public virtual ICollection<TestPreguntas> TestPregunta { get; set; } = new List<TestPreguntas>();
 }
