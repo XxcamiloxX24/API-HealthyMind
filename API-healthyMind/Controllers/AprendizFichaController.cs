@@ -248,7 +248,7 @@ namespace API_healthyMind.Controllers
             });
         }
 
-        [HttpPut("{id}")]
+        [HttpPut("editar/{id}")]
         public async Task<IActionResult> EditarInformacion(int id, [FromBody] AprendizFichaDTO dto)
         {
             var aprEncontrado = await _uow.AprendizFicha.ObtenerTodoConCondicion(a => a.Aprendiz.AprNroDocumento == id && a.AprFicEstadoRegistro == "activo");
@@ -276,7 +276,7 @@ namespace API_healthyMind.Controllers
         }
 
 
-        [HttpPut("eliminar")]
+        [HttpPut("eliminar/{documento}")]
         public async Task<IActionResult> EliminarAprendiz(int documento, [FromBody] RazonEliminacionDTO dto)
         {
             var aprEncontrado = await _uow.AprendizFicha.ObtenerTodoConCondicion(a => a.Aprendiz.AprNroDocumento == documento && a.AprFicEstadoRegistro == "activo");

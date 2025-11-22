@@ -469,7 +469,7 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(100)
                 .HasColumnName("dia_titulo");
 
-            entity.HasOne(d => d.DiaAprendizFkNavigation).WithMany(p => p.Diarios)
+            entity.HasOne(d => d.aprendiz).WithMany(p => p.Diarios)
                 .HasForeignKey(d => d.DiaAprendizFk)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("diario_ibfk_1");

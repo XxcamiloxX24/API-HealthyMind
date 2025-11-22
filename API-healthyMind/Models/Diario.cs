@@ -15,7 +15,7 @@ public partial class Diario
 
     public int DiaAprendizFk { get; set; }
 
-    public virtual Aprendiz DiaAprendizFkNavigation { get; set; } = null!;
+    public virtual Aprendiz aprendiz { get; set; } = null!;
 
     public virtual ICollection<PaginaDiario> PaginaDiarios { get; set; } = new List<PaginaDiario>();
 }
