@@ -11,7 +11,7 @@ public partial class PaginaDiario
 
     public string? PagContenido { get; set; }
 
-    public DateTime? PagFechaRealizacion { get; set; }
+    public DateTime PagFechaRealizacion { get; set; }
 
     public int? PagDiarioFk { get; set; }
 
