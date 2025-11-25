@@ -40,7 +40,7 @@ namespace API_healthyMind.Controllers
                     PrimerApellido = d.AprApellido,
                     SegundoApellido = d.AprSegundoApellido
                 },
-                Ubicacion = new
+                Ubicacion = d.Municipio == null ? null : new
                 {
                     DepartamentoID = d.Municipio.Regional.RegCodigo,
                     Departamento = d.Municipio.Regional.RegNombre,
@@ -187,8 +187,8 @@ namespace API_healthyMind.Controllers
             if (!string.IsNullOrEmpty(f.TipoDocumento))
                 q = q.Where(x => x.TesRegistroFkNavigation.TestGenApreFkNavigation.Aprendiz.AprTipoDocumento == f.TipoDocumento);
 
-            if (f.NroDocumento.HasValue)
-                q = q.Where(x => x.TesRegistroFkNavigation.TestGenApreFkNavigation.Aprendiz.AprNroDocumento == f.NroDocumento.Value);
+            if (!string.IsNullOrEmpty(f.NroDocumento))
+                q = q.Where(x => x.TesRegistroFkNavigation.TestGenApreFkNavigation.Aprendiz.AprNroDocumento == f.NroDocumento);
 
             if (!string.IsNullOrEmpty(f.PrimerNombre))
                 q = q.Where(x => x.TesRegistroFkNavigation.TestGenApreFkNavigation.Aprendiz.AprNombre.ToLower().Contains(f.PrimerNombre.ToLower()));
@@ -211,8 +211,8 @@ namespace API_healthyMind.Controllers
             if (!string.IsNullOrEmpty(f.TipoPoblacion))
                 q = q.Where(x => x.TesRegistroFkNavigation.TestGenApreFkNavigation.Aprendiz.AprTipoPoblacion.ToLower() == f.TipoPoblacion.ToLower());
 
-            if (f.PsicologoDocumento.HasValue)
-                q = q.Where(x => x.TesRegistroFkNavigation.TestGenPsicoFkNavigation.PsiDocumento == f.PsicologoDocumento.Value);
+            if (!string.IsNullOrEmpty(f.PsicologoDocumento))
+                q = q.Where(x => x.TesRegistroFkNavigation.TestGenPsicoFkNavigation.PsiDocumento == f.PsicologoDocumento);
 
             if (f.FechaRealizacionDesde.HasValue)
             {

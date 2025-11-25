@@ -2,6 +2,6 @@
 {
     public class FiltroDiarioDTO : FiltroAprendizFichaDTO
     {
-        public int? AprendizId { get; set; }
+        public string? AprendizId { get; set; }
     }
 }

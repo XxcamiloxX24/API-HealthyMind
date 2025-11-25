@@ -10,11 +10,11 @@ namespace API_healthyMind.Services
     {
         private static readonly string Key = "f7ad9b48f344387a515b2d4279f80407";
 
-        public static string GenerarToken(int documento, string tipoUsuario)
+        public static string GenerarToken(string documento, string tipoUsuario)
         {
             var claims = new[]
             {
-            new Claim("documento", documento.ToString()),
+            new Claim("documento", documento),
             new Claim("tipo", tipoUsuario)
         };
 
@@ -31,7 +31,7 @@ namespace API_healthyMind.Services
         }
         public class TokenData
         {
-            public int Documento { get; set; }
+            public string Documento { get; set; }
             public string TipoUsuario { get; set; }
         }
 
@@ -53,7 +53,7 @@ namespace API_healthyMind.Services
 
             return new TokenData
             {
-                Documento = int.Parse(jwt.Claims.First(c => c.Type == "documento").Value),
+                Documento = jwt.Claims.First(c => c.Type == "documento").Value,
                 TipoUsuario = jwt.Claims.First(c => c.Type == "tipo").Value
             };
         }

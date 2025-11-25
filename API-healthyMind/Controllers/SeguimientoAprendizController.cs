@@ -46,7 +46,7 @@ namespace API_healthyMind.Controllers
                     PrimerApellido = d.AprApellido,
                     SegundoApellido = d.AprSegundoApellido
                 },
-                Ubicacion = new
+                Ubicacion = d.Municipio == null ? null : new
                 {
                     DepartamentoID = d.Municipio.Regional.RegCodigo,
                     Departamento = d.Municipio.Regional.RegNombre,
@@ -246,8 +246,8 @@ namespace API_healthyMind.Controllers
                 q = q.Where(x => x.SegAprendizFkNavigation.Ficha.programaFormacion.ProgNombre.ToLower()
                     .Contains(f.ProgramaNombre.ToLower()));
 
-            if (f.PsicologoID.HasValue)
-                q = q.Where(x => x.SegPsicologoFkNavigation.PsiDocumento == f.PsicologoID.Value);
+            if (!string.IsNullOrEmpty(f.PsicologoID))
+                q = q.Where(x => x.SegPsicologoFkNavigation.PsiDocumento == f.PsicologoID);
 
             if (!string.IsNullOrEmpty(f.TipoPoblacion))
                 q = q.Where(x => x.SegAprendizFkNavigation.Aprendiz.AprTipoPoblacion.ToLower() == f.TipoPoblacion.ToLower());

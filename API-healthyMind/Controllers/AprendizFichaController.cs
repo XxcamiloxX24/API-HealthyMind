@@ -45,7 +45,7 @@ namespace API_healthyMind.Controllers
                     PrimerApellido = d.AprApellido,
                     SegundoApellido = d.AprSegundoApellido
                 },
-                Ubicacion = new
+                Ubicacion = d.Municipio == null ? null : new
                 {
                     DepartamentoID = d.Municipio.Regional.RegCodigo,
                     Departamento = d.Municipio.Regional.RegNombre,
@@ -171,14 +171,14 @@ namespace API_healthyMind.Controllers
                 q = q.Where(x => x.Ficha.programaFormacion.ProgNombre.ToLower()
                     .Contains(f.ProgramaNombre.ToLower()));
 
-            if (f.PsicologoID.HasValue)
-                q = q.Where(x => x.Ficha.programaFormacion.Area.AreaPsicologo.PsiCodigo == f.PsicologoID.Value);
-
             if (!string.IsNullOrEmpty(f.TipoPoblacion))
                 q = q.Where(x => x.Aprendiz.AprTipoPoblacion.ToLower() == f.TipoPoblacion.ToLower());
 
             if (!string.IsNullOrEmpty(f.Eps))
                 q = q.Where(x => x.Aprendiz.AprEps.ToLower() == f.Eps.ToLower());
+
+            if (!string.IsNullOrEmpty(f.AprendizDocumento))
+                q = q.Where(x => x.Aprendiz.AprNroDocumento.ToLower() == f.AprendizDocumento.ToLower() && x.Aprendiz.AprEstadoRegistro == "activo");
 
             if (f.EstadoAprendizID.HasValue)
                 q = q.Where(x => x.Aprendiz.EstadoAprendiz.EstAprCodigo == f.EstadoAprendizID.Value);
@@ -233,9 +233,11 @@ namespace API_healthyMind.Controllers
                 return BadRequest("El cuerpo no debe estar vacio!");
             }
 
+            var aprEncontrado = (await _uow.Aprendiz.ObtenerTodoConCondicion(c => c.AprNroDocumento == dto.AprFicAprendizFk)).FirstOrDefault();
+
             var nuevoReg = new AprendizFicha
             {
-                AprFicAprendizFk = dto.AprFicAprendizFk,
+                AprFicAprendizFk = aprEncontrado.AprCodigo,
                 AprFicFichaFk = dto.AprFicFichaFk
             };
 
@@ -249,7 +251,7 @@ namespace API_healthyMind.Controllers
         }
 
         [HttpPut("editar/{id}")]
-        public async Task<IActionResult> EditarInformacion(int id, [FromBody] AprendizFichaDTO dto)
+        public async Task<IActionResult> EditarInformacion(string id, [FromBody] AprendizFichaDTO dto)
         {
             var aprEncontrado = await _uow.AprendizFicha.ObtenerTodoConCondicion(a => a.Aprendiz.AprNroDocumento == id && a.AprFicEstadoRegistro == "activo");
 
@@ -261,7 +263,7 @@ namespace API_healthyMind.Controllers
             var resultado = aprEncontrado.FirstOrDefault();
 
             
-            resultado.AprFicAprendizFk = dto.AprFicAprendizFk;
+            resultado.AprFicAprendizFk = resultado.Aprendiz.AprCodigo;
             resultado.AprFicFichaFk= dto.AprFicFichaFk;
             
 
@@ -276,10 +278,10 @@ namespace API_healthyMind.Controllers
         }
 
 
-        [HttpPut("eliminar/{documento}")]
-        public async Task<IActionResult> EliminarAprendiz(int documento, [FromBody] RazonEliminacionDTO dto)
+        [HttpPut("eliminar")]
+        public async Task<IActionResult> EliminarAprendiz(string documento, int nroFicha)
         {
-            var aprEncontrado = await _uow.AprendizFicha.ObtenerTodoConCondicion(a => a.Aprendiz.AprNroDocumento == documento && a.AprFicEstadoRegistro == "activo");
+            var aprEncontrado = await _uow.AprendizFicha.ObtenerTodoConCondicion(a => a.Aprendiz.AprNroDocumento == documento && a.Ficha.FicCodigo == nroFicha && a.AprFicEstadoRegistro == "activo");
 
             var user = aprEncontrado.FirstOrDefault();
 

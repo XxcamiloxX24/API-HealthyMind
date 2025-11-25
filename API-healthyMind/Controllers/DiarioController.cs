@@ -45,7 +45,7 @@ namespace API_healthyMind.Controllers
                     PrimerApellido = d.AprApellido,
                     SegundoApellido = d.AprSegundoApellido
                 },
-                Ubicacion = new
+                Ubicacion = d.Municipio == null ? null : new
                 {
                     DepartamentoID = d.Municipio.Regional.RegCodigo,
                     Departamento = d.Municipio.Regional.RegNombre,
@@ -181,8 +181,8 @@ namespace API_healthyMind.Controllers
                 ));
 
 
-            if (f.AprendizId.HasValue)
-                q = q.Where(x => x.aprendiz.AprNroDocumento == f.AprendizId.Value);
+            if (!string.IsNullOrEmpty(f.AprendizId))
+                q = q.Where(x => x.aprendiz.AprNroDocumento == f.AprendizId);
 
 
             if (!string.IsNullOrEmpty(f.TipoPoblacion))

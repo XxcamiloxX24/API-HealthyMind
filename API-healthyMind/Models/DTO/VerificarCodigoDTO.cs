@@ -2,7 +2,7 @@
 {
     public class VerificarCodigoDTO
     {
-        public int AprendizId { get; set; }
+        public string AprendizId { get; set; }
         public string Codigo { get; set; }
     }
 }

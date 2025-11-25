@@ -52,55 +52,7 @@ namespace API_healthyMind.Controllers
                     PrimerApellido = d.AprApellido,
                     SegundoApellido = d.AprSegundoApellido
                 },
-                Ubicacion = new
-                {
-                    DepartamentoID = d.Municipio.Regional.RegCodigo,
-                    Departamento = d.Municipio.Regional.RegNombre,
-                    MunicipioID = d.Municipio.CiuCodigo,
-                    Municipio = d.Municipio.CiuNombre,
-                    Direccion = d.AprDireccion
-                },
-                Contacto = new
-                {
-                    Telefono = d.AprTelefono,
-                    CorreoInstitucional = d.AprCorreoInstitucional,
-                    CorreoPersonal = d.AprCorreoPersonal,
-                    Acudiente = new
-                    {
-                        AcudienteNombre = d.AprAcudNombre,
-                        AcudienteApellido = d.AprAcudApellido,
-                        AcudienteTelefono = d.AprTelefonoAcudiente
-                    }
-                },
-                d.EstadoAprendiz,
-                Eps = d.AprEps,
-                Patologia = d.AprPatologia,
-                TipoPoblacion = d.AprTipoPoblacion
-            };
-        }
-
-        private static object MapearAprendizInactivo(Aprendiz d)
-        {
-            return new
-            {
-                Codigo = d.AprCodigo,
-                FechaCreacion = d.AprFechaCreacion,
-                d.AprFechaEliminacion,
-                d.AprRazonEliminacion,
-                TipoDocumento = d.AprTipoDocumento,
-                NroDocumento = d.AprNroDocumento,
-                FechaNacimiento = d.AprFechaNac,
-                Nombres = new
-                {
-                    PrimerNombre = d.AprNombre,
-                    SegundoNombre = d.AprSegundoNombre
-                },
-                Apellidos = new
-                {
-                    PrimerApellido = d.AprApellido,
-                    SegundoApellido = d.AprSegundoApellido
-                },
-                Ubicacion = new
+                Ubicacion = d.Municipio == null ? null : new
                 {
                     DepartamentoID = d.Municipio.Regional.RegCodigo,
                     Departamento = d.Municipio.Regional.RegNombre,
@@ -178,7 +130,7 @@ namespace API_healthyMind.Controllers
 
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> ObtenerPorId(int id)
+        public async Task<IActionResult> ObtenerPorId(string id)
         {
             var datos = await _uow.Aprendiz.ObtenerTodoConCondicion(e => e.AprEstadoRegistro == "activo" && e.AprNroDocumento == id,
                 e => e.Include(c => c.Municipio)
@@ -205,10 +157,10 @@ namespace API_healthyMind.Controllers
                 q = q.Where(x => x.AprCodigo == f.Codigo.Value);
 
             if (!string.IsNullOrEmpty(f.TipoDocumento))
-                q = q.Where(x => x.AprTipoDocumento == f.TipoDocumento);
+                q = q.Where(x => x.AprTipoDocumento.ToLower() == f.TipoDocumento.ToLower());
 
-            if (f.NroDocumento.HasValue)
-                q = q.Where(x => x.AprNroDocumento == f.NroDocumento.Value);
+            if (!string.IsNullOrEmpty((f.NroDocumento)))
+                q = q.Where(x => x.AprNroDocumento.ToLower() == f.NroDocumento.ToLower());
 
             if (!string.IsNullOrEmpty(f.PrimerNombre))
                 q = q.Where(x => x.AprNombre.ToLower().Contains(f.PrimerNombre.ToLower()));
@@ -306,12 +258,12 @@ namespace API_healthyMind.Controllers
         public async Task<IActionResult> VerificarCodigo(VerificarCodigoDTO dto)
         {
             var registro = await _uow.VerificationCode
-                .ObtenerTodoConCondicion(v => v.AprendizId == dto.AprendizId && v.Codigo == dto.Codigo && v.Expiration > DateTime.UtcNow);
+                .ObtenerTodoConCondicion(v => v.Aprendiz.AprNroDocumento == dto.AprendizId && v.Codigo == dto.Codigo && v.Expiration > DateTime.UtcNow);
 
             if (!registro.Any())
                 return BadRequest("Código inválido o expirado");
 
-            var aprendiz = await _uow.Aprendiz.ObtenerPorID(dto.AprendizId);
+            var aprendiz = (await _uow.Aprendiz.ObtenerTodoConCondicion(c => c.AprNroDocumento == dto.AprendizId)).FirstOrDefault();
             
             aprendiz.AprEstadoRegistro = "activo";
 
@@ -360,7 +312,7 @@ namespace API_healthyMind.Controllers
         }
 
         [HttpPut("completar-informacion")]
-        public async Task<IActionResult> CompletarInformacion(int documento, [FromBody] AprendizDTO nuevoAprendiz)
+        public async Task<IActionResult> CompletarInformacion(string documento, [FromBody] AprendizDTO nuevoAprendiz)
         {
             if (nuevoAprendiz == null || nuevoAprendiz.Equals(null))
             {
@@ -391,7 +343,7 @@ namespace API_healthyMind.Controllers
             resultado.AprAcudNombre = nuevoAprendiz.AprAcudNombre;
             resultado.AprAcudApellido = nuevoAprendiz.AprAcudApellido;
             resultado.AprTelefonoAcudiente = nuevoAprendiz.AprTelefonoAcudiente;
-            await _uow.Aprendiz.Agregar(resultado);
+             _uow.Aprendiz.Actualizar(resultado);
             await _uow.SaveChangesAsync();
 
 
@@ -409,13 +361,13 @@ namespace API_healthyMind.Controllers
 
             return Ok(new
             {
-                mensaje = "Programa creado correctamente!",
+                mensaje = "Se ha completado la información correctamente!",
                 resultados
             });
         }
 
         [HttpPut("cambiar-correo")]
-        public async Task<IActionResult> cambiarCorreo(int documento, string correo)
+        public async Task<IActionResult> cambiarCorreo(string documento, string correo)
         {
 
             var aprendiz = await _uow.Aprendiz.ObtenerTodoConCondicion(a => a.AprNroDocumento == documento && a.AprEstadoRegistro == "inactivo");
@@ -471,7 +423,7 @@ namespace API_healthyMind.Controllers
                 return NotFound("No existe un aprendiz con ese correo.");
 
             // Crear JWT temporal
-            var token = JwtPasswordHelper.GenerarToken((int)usuario.AprNroDocumento, "aprendiz");
+            var token = JwtPasswordHelper.GenerarToken(usuario.AprNroDocumento, "aprendiz");
 
             var link = $"{token}";
 
@@ -510,8 +462,8 @@ namespace API_healthyMind.Controllers
 
 
 
-        [HttpPut("editar-informacion/{documento}")]
-        public async Task<IActionResult> EditarInformacion(int Documento, [FromBody] AprendizEditarDTO dto)
+        [HttpPut("editar-informacion/{Documento}")]
+        public async Task<IActionResult> EditarInformacion(string Documento, [FromBody] AprendizEditarDTO dto)
         {
             var aprEncontrado = await _uow.Aprendiz.ObtenerTodoConCondicion(a => a.AprNroDocumento == Documento && a.AprEstadoRegistro == "activo");
 
@@ -567,13 +519,13 @@ namespace API_healthyMind.Controllers
 
 
         [HttpPut("eliminar-usuario/{documento}")]
-        public async Task<IActionResult> EliminarAprendiz(int documento, [FromBody] RazonEliminacionDTO dto)
+        public async Task<IActionResult> EliminarAprendiz(string documento, [FromBody] RazonEliminacionDTO dto)
         {
             var aprEncontrado = await _uow.Aprendiz.ObtenerTodoConCondicion(a => a.AprNroDocumento == documento && a.AprEstadoRegistro == "activo");
 
             var user = aprEncontrado.FirstOrDefault();
 
-            if (user == null)
+            if (user == null || user.AprEstadoRegistro == "inactivo")
                 return NotFound("No se encontró este id.");
 
             user.AprRazonEliminacion = dto.RazonEliminacion;

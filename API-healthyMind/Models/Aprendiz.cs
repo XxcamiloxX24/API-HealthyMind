@@ -21,7 +21,7 @@ public partial class Aprendiz
     /// <summary>
     /// Numero de documento
     /// </summary>
-    public int? AprNroDocumento { get; set; }
+    public string? AprNroDocumento { get; set; }
 
     public DateOnly? AprFechaNac { get; set; }
 
@@ -62,7 +62,7 @@ public partial class Aprendiz
     /// <summary>
     /// Numero de celular
     /// </summary>
-    public int? AprTelefono { get; set; }
+    public string? AprTelefono { get; set; }
 
     public string? AprEps { get; set; }
 
@@ -76,7 +76,7 @@ public partial class Aprendiz
     /// <summary>
     /// Numero de celular de un acudiente
     /// </summary>
-    public int? AprTelefonoAcudiente { get; set; }
+    public string? AprTelefonoAcudiente { get; set; }
 
     /// <summary>
     /// Nombre del acudiente

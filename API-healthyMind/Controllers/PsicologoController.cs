@@ -61,7 +61,7 @@ namespace API_healthyMind.Controllers
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> ObtenerPorDocumento(int documento)
+        public async Task<IActionResult> ObtenerPorDocumento(string documento)
         {
             var datos = await _uow.Psicologo.ObtenerTodoConCondicion(e => e.PsiDocumento == documento && e.PsiEstadoRegistro == "activo");
 
@@ -186,8 +186,15 @@ namespace API_healthyMind.Controllers
             });
         }
 
+        public class CambiarPasswordPsicologoDTO
+        {
+            public string UsuarioDocumento { get; set; }
+            public string PasswordActual { get; set; }
+            public string PasswordNueva { get; set; }
+        }
+
         [HttpPut("cambiar-password")]
-        public async Task<IActionResult> CambiarPassword([FromBody] CambiarPasswordDTO dto)
+        public async Task<IActionResult> CambiarPassword([FromBody] CambiarPasswordPsicologoDTO dto)
         {
             var psicologo = await _uow.Psicologo.ObtenerTodoConCondicion(c => c.PsiDocumento == dto.UsuarioDocumento);
             var resultado = psicologo.FirstOrDefault();
@@ -225,7 +232,7 @@ namespace API_healthyMind.Controllers
                 return NotFound("No existe un psicologo con ese correo.");
 
             // Crear JWT temporal
-            var token = JwtPasswordHelper.GenerarToken((int)usuario.PsiDocumento, "psicologo");
+            var token = JwtPasswordHelper.GenerarToken(usuario.PsiDocumento, "psicologo");
 
             var link = $"{token}";
 
@@ -263,7 +270,7 @@ namespace API_healthyMind.Controllers
 
 
         [HttpPut("eliminar/{id}")]
-        public async Task<IActionResult> EliminarPsicologo(int id)
+        public async Task<IActionResult> EliminarPsicologo(string id)
         {
             var psicEncontrado = await _uow.Psicologo.ObtenerTodoConCondicion(c => c.PsiDocumento == id);
             var datos = psicEncontrado.FirstOrDefault();

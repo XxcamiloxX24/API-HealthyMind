@@ -2,6 +2,6 @@
 {
     public class ReenviarCodigoDTO
     {
-        public int AprNroDocumento { get; set; }
+        public string AprNroDocumento { get; set; }
     }
 }

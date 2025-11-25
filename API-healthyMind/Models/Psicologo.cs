@@ -10,7 +10,7 @@ public partial class Psicologo
     public int PsiCodigo { get; set; }
 
 
-    public int? PsiDocumento { get; set; }
+    public string? PsiDocumento { get; set; }
 
 
     public string? PsiNombre { get; set; }

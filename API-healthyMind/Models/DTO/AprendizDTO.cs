@@ -19,7 +19,7 @@
 
         public int? AprCiudadFk { get; set; }
 
-        public int? AprTelefono { get; set; }
+        public string? AprTelefono { get; set; }
 
         public string? AprEps { get; set; }
 
@@ -29,7 +29,7 @@
 
         public string? AprTipoPoblacion { get; set; }
 
-        public int? AprTelefonoAcudiente { get; set; }
+        public string? AprTelefonoAcudiente { get; set; }
 
         public string? AprAcudNombre { get; set; }
 

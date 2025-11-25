@@ -134,8 +134,8 @@ public partial class AppDbContext : DbContext
                 .HasComment("Nombre del aprendiz")
                 .HasColumnName("apr_nombre");
             entity.Property(e => e.AprNroDocumento)
+                .HasMaxLength(15)
                 .HasComment("Numero de documento")
-                .HasColumnType("int(11)")
                 .HasColumnName("apr_nro_documento");
             entity.Property(e => e.AprPassword)
                 .HasMaxLength(100)
@@ -155,12 +155,12 @@ public partial class AppDbContext : DbContext
                 .HasComment("Segundo nombre del aprendiz")
                 .HasColumnName("apr_segundo_nombre");
             entity.Property(e => e.AprTelefono)
+                .HasMaxLength(15)
                 .HasComment("Numero de celular")
-                .HasColumnType("int(11)")
                 .HasColumnName("apr_telefono");
             entity.Property(e => e.AprTelefonoAcudiente)
+                .HasMaxLength(15)
                 .HasComment("Numero de celular de un acudiente")
-                .HasColumnType("int(11)")
                 .HasColumnName("apr_telefono_acudiente");
             entity.Property(e => e.AprTipoDocumento)
                 .HasComment("Tipo de documento de identidad")
@@ -726,8 +726,8 @@ public partial class AppDbContext : DbContext
                 .HasComment("ubicacion de su oficina de trabajo")
                 .HasColumnName("psi_direccion");
             entity.Property(e => e.PsiDocumento)
+                .HasMaxLength(15)
                 .HasComment("documento del psicologo")
-                .HasColumnType("int(11)")
                 .HasColumnName("psi_documento");
             entity.Property(e => e.PsiEspecialidad)
                 .HasMaxLength(100)

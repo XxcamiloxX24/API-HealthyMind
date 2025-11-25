@@ -135,7 +135,7 @@ namespace API_healthyMind.Controllers
         }
 
         [HttpGet("psicologo/{id}")]
-        public async Task<IActionResult> ObtenerPorPsicologo(int id)
+        public async Task<IActionResult> ObtenerPorPsicologo(string id)
         {
             var datos = await _uow.Ficha.ObtenerTodoConCondicion(e => e.FicEstadoRegistro == "activo" && e.programaFormacion.Area.AreaPsicologo.PsiDocumento == id,
                                                                     e => e.Include(c => c.programaFormacion)

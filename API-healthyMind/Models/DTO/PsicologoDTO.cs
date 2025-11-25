@@ -4,7 +4,7 @@ namespace API_healthyMind.Models.DTO
 {
     public class PsicologoDTO
     {
-        public int? PsiDocumento { get; set; }
+        public string? PsiDocumento { get; set; }
 
 
         public string? PsiNombre { get; set; }
