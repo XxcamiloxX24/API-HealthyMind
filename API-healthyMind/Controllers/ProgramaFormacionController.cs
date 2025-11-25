@@ -1,6 +1,7 @@
 ﻿using API_healthyMind.Data;
 using API_healthyMind.Models;
 using API_healthyMind.Models.DTO;
+using API_healthyMind.Models.DTO.Filtros;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -19,7 +20,38 @@ namespace API_healthyMind.Controllers
         {
             _uow = uow;
         }
-        
+
+        private static object MapearPrograma(Programaformacion d)
+        {
+            return new
+                {
+                    d.ProgCodigo,
+                    d.ProgNombre,
+                    d.ProgModalidad,
+                    d.ProgFormaModalidad,
+                    d.NivelFormacion,
+                    Area = d.Area == null ? null : new
+                    {
+                        d.Area.AreaCodigo,
+                        d.Area.AreaNombre,
+                        Psicologo = d.Area.AreaPsicologo,
+                        
+                    },
+                    Centro = d.Centro== null ? null : new
+                    {
+                        d.Centro.CenCodigo,
+                        d.Centro.CenNombre,
+                        d.Centro.CenDireccion,
+                        Regional = new
+                        {
+                            d.Centro.Regional.RegCodigo,
+                            d.Centro.Regional.RegNombre
+                        },
+                        d.Centro.CenCodFk
+                    }
+                };
+        }
+
         [HttpGet]
         public async Task<IActionResult> ObtenerTodos()
         {
@@ -30,9 +62,9 @@ namespace API_healthyMind.Controllers
                             .ThenInclude(c => c.Regional)
                         .Include(c => c.NivelFormacion)
                 );
+            var resultado = datos.Select(MapearPrograma);
 
-            
-            return Ok(datos);
+            return Ok(resultado);
         }
         
         [HttpGet("{id}")]
@@ -50,123 +82,61 @@ namespace API_healthyMind.Controllers
             {
                 return NotFound("No se encontró este elemento");
             }
-
-            return Ok(datos);
+            var resultado = datos.Select(MapearPrograma);
+            return Ok(resultado);
         }
 
-        [HttpGet("nombre/{nombre}")]
-        public async Task<IActionResult> ObtenerPorNombre(string nombre)
+        [HttpGet("buscar")]
+        public async Task<IActionResult> Buscar([FromQuery] FiltrosProgramasDTO f)
         {
-            var datos = await _uow.ProgramaFormacion.ObtenerTodoConCondicion(e => e.ProgEstadoRegistro == "activo" && e.ProgNombre.ToLower() == nombre.ToLower(),
-                e => e.Include(c => c.Area)
-                            .ThenInclude(c => c.AreaPsicologo)
-                        .Include(c => c.Centro)
-                            .ThenInclude(c => c.Regional)
-                        .Include(c => c.NivelFormacion)
-                );
+            IQueryable<Programaformacion> q = _uow.ProgramaFormacion.Query()
+                .Where(x => x.ProgEstadoRegistro.ToLower() == "activo")
+                .Include(x => x.Area)
+                    .ThenInclude(a => a.AreaPsicologo)
+                .Include(x => x.Centro)
+                    .ThenInclude(c => c.Regional)
+                .Include(x => x.NivelFormacion);
 
-            if (datos == null || !datos.Any())
-            {
-                return NotFound("No se encontró este elemento");
-            }
+            // ===========================
+            //        F I L T R O S
+            // ===========================
 
-            return Ok(datos);
+            if (!string.IsNullOrEmpty(f.ProgramaNombre))
+                q = q.Where(x => x.ProgNombre.ToLower().Contains(f.ProgramaNombre.ToLower()));
+
+            if (!string.IsNullOrEmpty(f.AreaNombre))
+                q = q.Where(x => x.Area.AreaNombre.ToLower().Contains(f.AreaNombre.ToLower()));
+
+            if (!string.IsNullOrEmpty(f.CentroNombre))
+                q = q.Where(x => x.Centro.CenNombre.ToLower().Contains(f.CentroNombre.ToLower()));
+
+            if (!string.IsNullOrEmpty(f.NivelFormacion))
+                q = q.Where(x => x.NivelFormacion.NivForNombre.ToLower().Contains(f.NivelFormacion.ToLower()));
+
+            // 🔥 FILTRO QUE PEDISTE: DOCUMENTO DEL PSICÓLOGO
+            if (!string.IsNullOrEmpty(f.PsicologoDocumento))
+                q = q.Where(x => x.Area.AreaPsicologo.PsiDocumento.ToLower() == f.PsicologoDocumento.ToLower());
+
+            if (!string.IsNullOrEmpty(f.Modalidad))
+                q = q.Where(x => x.ProgModalidad.ToLower().Contains(f.Modalidad.ToLower()));
+
+            if (!string.IsNullOrEmpty(f.FormaModalidad))
+                q = q.Where(x => x.ProgFormaModalidad.ToLower().Contains(f.FormaModalidad.ToLower()));
+
+            // ===========================
+            //       EJECUCIÓN
+            // ===========================
+
+            var datos = await q.ToListAsync();
+
+            if (!datos.Any())
+                return NotFound("No se encontraron programas con estos filtros.");
+
+            var resultado = datos.Select(MapearPrograma);
+
+            return Ok(resultado);
         }
 
-        [HttpGet("modalidad/{nombre}")]
-        public async Task<IActionResult> ObtenerPorModalidad(string nombre)
-        {
-            var datos = await _uow.ProgramaFormacion.ObtenerTodoConCondicion(e => e.ProgEstadoRegistro == "activo" && e.ProgModalidad.ToLower() == nombre.ToLower(),
-                e => e.Include(c => c.Area)
-                            .ThenInclude(c => c.AreaPsicologo)
-                        .Include(c => c.Centro)
-                            .ThenInclude(c => c.Regional)
-                        .Include(c => c.NivelFormacion)
-                );
-
-            if (datos == null || !datos.Any())
-            {
-                return NotFound("No se encontró ningún elemento");
-            }
-
-            return Ok(datos);
-        }
-
-        [HttpGet("formaModalidad/{nombre}")]
-        public async Task<IActionResult> ObtenerPorformaModalidad(string nombre)
-        {
-            var datos = await _uow.ProgramaFormacion.ObtenerTodoConCondicion(e => e.ProgEstadoRegistro == "activo" && e.ProgFormaModalidad.ToLower() == nombre.ToLower(),
-                e => e.Include(c => c.Area)
-                            .ThenInclude(c => c.AreaPsicologo)
-                        .Include(c => c.Centro)
-                            .ThenInclude(c => c.Regional)
-                        .Include(c => c.NivelFormacion)
-                );
-
-            if (datos == null || !datos.Any())
-            {
-                return NotFound("No se encontró ningún elemento");
-            }
-
-            return Ok(datos);
-        }
-
-        [HttpGet("area/{nombre}")]
-        public async Task<IActionResult> ObtenerPorArea(string nombre)
-        {
-            var datos = await _uow.ProgramaFormacion.ObtenerTodoConCondicion(e => e.ProgEstadoRegistro == "activo" && e.Area.AreaNombre.ToLower() == nombre.ToLower(),
-                e => e.Include(c => c.Area)
-                            .ThenInclude(c => c.AreaPsicologo)
-                        .Include(c => c.Centro)
-                            .ThenInclude(c => c.Regional)
-                        .Include(c => c.NivelFormacion)
-                );
-
-            if (datos == null || !datos.Any())
-            {
-                return NotFound("No se encontró ningún elemento");
-            }
-
-            return Ok(datos);
-        }
-
-        [HttpGet("nivelFormacion/{nombre}")]
-        public async Task<IActionResult> ObtenerPornivelFormacion(string nombre)
-        {
-            var datos = await _uow.ProgramaFormacion.ObtenerTodoConCondicion(e => e.ProgEstadoRegistro == "activo" && e.NivelFormacion.NivForNombre.ToLower() == nombre.ToLower(),
-                e => e.Include(c => c.Area)
-                            .ThenInclude(c => c.AreaPsicologo)
-                        .Include(c => c.Centro)
-                            .ThenInclude(c => c.Regional)
-                        .Include(c => c.NivelFormacion)
-                );
-
-            if (datos == null || !datos.Any())
-            {
-                return NotFound("No se encontró ningún elemento");
-            }
-
-            return Ok(datos);
-        }
-
-        [HttpGet("centro/{id}")]
-        public async Task<IActionResult> ObtenerPorCentro(int id)
-        {
-            var datos = await _uow.ProgramaFormacion.ObtenerTodoConCondicion(e => e.ProgEstadoRegistro == "activo" && e.Centro.CenCodigo == id,
-                e => e.Include(c => c.Area)
-                            .ThenInclude(c => c.AreaPsicologo)
-                        .Include(c => c.Centro)
-                            .ThenInclude(c => c.Regional)
-                        .Include(c => c.NivelFormacion)
-                );
-
-            if (datos == null || !datos.Any())
-            {
-                return NotFound("No se encontró ningún elemento");
-            }
-
-            return Ok(datos);
-        }
 
 
 
@@ -205,11 +175,11 @@ namespace API_healthyMind.Controllers
             {
                 return NotFound("No se encontró este elemento");
             }
-
+            var resultado = datos.Select(MapearPrograma);
             return Ok(new
             {
                 mensaje = "Programa creado correctamente!",
-                datos
+                resultado
             });
         }
 
@@ -249,11 +219,11 @@ namespace API_healthyMind.Controllers
             {
                 return NotFound("No se encontró este elemento");
             }
-
+            var resultado = datos.Select(MapearPrograma);
             return Ok(new
             {
                 mensaje = "Programa editado correctamente!",
-                datos
+                resultado
             });
         }
 

@@ -486,8 +486,8 @@ public partial class AppDbContext : DbContext
                 .HasColumnType("int(40)")
                 .HasColumnName("emo_codigo");
             entity.Property(e => e.EmoDescripcion)
+                .HasMaxLength(100)
                 .HasComment("descripcion de la emocion")
-                .HasColumnType("text")
                 .HasColumnName("emo_descripcion");
             entity.Property(e => e.EmoImage)
                 .HasMaxLength(100)

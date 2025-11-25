@@ -60,6 +60,42 @@ namespace API_healthyMind.Controllers
             return Ok(resultado);
         }
 
+        [HttpGet("nodos")]
+        public async Task<IActionResult> obtenerPorNodos(int id)
+        {
+            if (id.ToString() == "")
+            {
+                return BadRequest("El campo id no debe estar vacio!");
+            }
+            var regObtenidos = await _uow.Centro.ObtenerTodoConCondicion(c => c.CenCodFk == id, 
+                c=> c.Include(x => x.InverseCenCodFkNavigation),
+                c=> c.Include(x => x.Regional)
+                
+                );
+
+            if (!regObtenidos.Any())
+            {
+                return NotFound("No se encontró ningun nodo que pertenezca a este centro!");
+            }
+
+
+            var resultado = regObtenidos.Select(c => new
+            {
+                c.CenCodigo,
+                c.CenNombre,
+                c.CenDireccion,
+                Regional = new
+                {
+                    c.Regional.RegCodigo,
+                    c.Regional.RegNombre
+                },
+                c.CenCodFk
+            });
+            return Ok(resultado);
+
+        }   
+
+
         [HttpPost]
         public async Task<IActionResult> CrearCentro([FromBody] CentroDTO nuevoCentro)
         {

@@ -86,7 +86,19 @@ namespace API_healthyMind.Controllers
             return Ok(emoEncontrada);
         }
 
+        [HttpDelete("eliminar/{id}")]
+        public async Task<IActionResult> eliminarEmo(int id)
+        {
+            var emoEncontrada = await _uow.Emociones.ObtenerPorID(id);
+            if (emoEncontrada == null)
+            {
+                return NotFound("No se encontró este id!");
+            }
 
+            _uow.Emociones.Eliminar(emoEncontrada);
+            await _uow.SaveChangesAsync();
 
+            return Ok("Se ha eliminado correctamente!");
+        }
     }
 }

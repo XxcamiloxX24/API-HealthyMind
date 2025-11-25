@@ -1,6 +1,7 @@
 ﻿using API_healthyMind.Data;
 using API_healthyMind.Models;
 using API_healthyMind.Models.DTO;
+using API_healthyMind.Models.DTO.Filtros;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -19,6 +20,30 @@ namespace API_healthyMind.Controllers
         {
             _uow = uow;
         }
+
+        private static object MapearFicha(Ficha d)
+        {
+            return new
+                {
+                    d.FicCodigo,
+                    d.FicJornada,
+                    d.FicFechaInicio,
+                    d.FicFechaFin,
+                    d.FicEstadoFormacion,
+                    ProgramaFormacion = d.programaFormacion == null ? null : new
+                    {
+                        d.programaFormacion.ProgCodigo,
+                        d.programaFormacion.ProgNombre,
+                        d.programaFormacion.ProgModalidad,
+                        d.programaFormacion.ProgFormaModalidad,
+                        d.programaFormacion.NivelFormacion,
+                        d.programaFormacion.Area,
+                        d.programaFormacion.Centro
+                    }
+
+            };
+        }
+
         // GET: NivelFormacionController
         [HttpGet]
         public async Task<IActionResult> ObtenerTodos()
@@ -58,118 +83,66 @@ namespace API_healthyMind.Controllers
             return Ok(datos);
         }
 
-        [HttpGet("jornada/{jornada}")]
-        public async Task<IActionResult> ObtenerPorJornada(string jornada)
+        [HttpGet("buscar")]
+        public async Task<IActionResult> Buscar([FromQuery] FiltroFichaDTO f)
         {
-            var datos = await _uow.Ficha.ObtenerTodoConCondicion(e => e.FicEstadoRegistro == "activo" && e.FicJornada.ToLower() == jornada.ToLower(),
-                                                                    e => e.Include(c => c.programaFormacion)
-                                                                            .ThenInclude(c => c.Area)
-                                                                                .ThenInclude(c => c.AreaPsicologo)
-                                                                            .Include(c => c.programaFormacion.Centro)
-                                                                                .ThenInclude(c => c.Regional)
-                                                                            .Include(c => c.programaFormacion.NivelFormacion));
+            IQueryable<Ficha> q = _uow.Ficha.Query()
+                .Include(fic => fic.programaFormacion)
+                        .ThenInclude(p => p.Area)
+                            .ThenInclude(a => a.AreaPsicologo)
+                .Include(fic => fic.programaFormacion)
+                        .ThenInclude(p => p.NivelFormacion)
+                .Include(fic => fic.programaFormacion)
+                        .ThenInclude(p => p.Centro)
+                            .ThenInclude(c => c.Regional);
 
-            if (!datos.Any() || datos == null)
-            {
-                return NotFound("No se encontró ningun registro!");
-            }
+            // ======================
+            //    FILTROS
+            // ======================
 
-            return Ok(datos);
-        }
+            if (f.FichaCodigo.HasValue)
+                q = q.Where(x => x.FicCodigo == f.FichaCodigo.Value);
 
-        [HttpGet("estadoFormacion/{estadoFormacion}")]
-        public async Task<IActionResult> ObtenerPorEstadoFormacion(string programaFormacion)
-        {
-            var datos = await _uow.Ficha.ObtenerTodoConCondicion(e => e.FicEstadoRegistro == "activo" && e.FicEstadoFormacion.ToLower() == programaFormacion.ToLower(),
-                                                                    e => e.Include(c => c.programaFormacion)
-                                                                            .ThenInclude(c => c.Area)
-                                                                                .ThenInclude(c => c.AreaPsicologo)
-                                                                            .Include(c => c.programaFormacion.Centro)
-                                                                                .ThenInclude(c => c.Regional)
-                                                                            .Include(c => c.programaFormacion.NivelFormacion));
+            if (!string.IsNullOrEmpty(f.AreaNombre))
+                q = q.Where(x => x.programaFormacion.Area.AreaNombre.ToLower()
+                    .Contains(f.AreaNombre.ToLower()));
 
-            if (!datos.Any() || datos == null)
-            {
-                return NotFound("No se encontró ningun registro!");
-            }
+            if (!string.IsNullOrEmpty(f.ProgramaNombre))
+                q = q.Where(x => x.programaFormacion.ProgNombre.ToLower()
+                    .Contains(f.ProgramaNombre.ToLower()));
 
-            return Ok(datos);
-        }
+            if (!string.IsNullOrEmpty(f.PsicologoID))
+                q = q.Where(x => x.programaFormacion.Area.AreaPsicologo.PsiDocumento.ToLower() == f.PsicologoID.ToLower());
 
-        [HttpGet("programaFormacion/{programaFormacion}")]
-        public async Task<IActionResult> ObtenerPorProgramaFormacion(int area)
-        {
-            var datos = await _uow.Ficha.ObtenerTodoConCondicion(e => e.FicEstadoRegistro == "activo" && e.programaFormacion.ProgCodigo == area,
-                                                                    e => e.Include(c => c.programaFormacion)
-                                                                            .ThenInclude(c => c.Area)
-                                                                                .ThenInclude(c => c.AreaPsicologo)
-                                                                            .Include(c => c.programaFormacion.Centro)
-                                                                                .ThenInclude(c => c.Regional)
-                                                                            .Include(c => c.programaFormacion.NivelFormacion));
+            if (!string.IsNullOrEmpty(f.CentroNombre))
+                q = q.Where(x => x.programaFormacion.Centro.CenNombre.ToLower()
+                    .Contains(f.CentroNombre.ToLower()));
 
-            if (!datos.Any() || datos == null)
-            {
-                return NotFound("No se encontró ningun registro!");
-            }
+            if (!string.IsNullOrEmpty(f.Jornada))
+                q = q.Where(x => x.FicJornada.ToLower() == f.Jornada.ToLower());
 
-            return Ok(datos);
-        }
+            if (f.FechaInicio.HasValue)
+                q = q.Where(x => x.FicFechaInicio >= f.FechaInicio.Value);
 
-        [HttpGet("area/{area}")]
-        public async Task<IActionResult> ObtenerPorArea(int area)
-        {
-            var datos = await _uow.Ficha.ObtenerTodoConCondicion(e => e.FicEstadoRegistro == "activo" && e.programaFormacion.Area.AreaCodigo == area,
-                                                                    e => e.Include(c => c.programaFormacion)
-                                                                            .ThenInclude(c => c.Area)
-                                                                                .ThenInclude(c => c.AreaPsicologo)
-                                                                            .Include(c => c.programaFormacion.Centro)
-                                                                                .ThenInclude(c => c.Regional)
-                                                                            .Include(c => c.programaFormacion.NivelFormacion));
+            if (f.FechaFin.HasValue)
+                q = q.Where(x => x.FicFechaFin <= f.FechaFin.Value);
 
-            if (!datos.Any() || datos == null)
-            {
-                return NotFound("No se encontró ningun registro!");
-            }
+            q = q.Where(x => x.FicEstadoRegistro.ToLower() == "activo");
 
-            return Ok(datos);
-        }
 
-        [HttpGet("psicologo/{id}")]
-        public async Task<IActionResult> ObtenerPorPsicologo(string id)
-        {
-            var datos = await _uow.Ficha.ObtenerTodoConCondicion(e => e.FicEstadoRegistro == "activo" && e.programaFormacion.Area.AreaPsicologo.PsiDocumento == id,
-                                                                    e => e.Include(c => c.programaFormacion)
-                                                                            .ThenInclude(c => c.Area)
-                                                                                .ThenInclude(c => c.AreaPsicologo)
-                                                                            .Include(c => c.programaFormacion.Centro)
-                                                                                .ThenInclude(c => c.Regional)
-                                                                            .Include(c => c.programaFormacion.NivelFormacion));
 
-            if (!datos.Any() || datos == null)
-            {
-                return NotFound("No se encontró ningun registro!");
-            }
+            // ======================
+            //  EJECUCIÓN
+            // ======================
 
-            return Ok(datos);
-        }
+            var datos = await q.ToListAsync();
 
-        [HttpGet("centro/{id}")]
-        public async Task<IActionResult> ObtenerPorCentro(int id)
-        {
-            var datos = await _uow.Ficha.ObtenerTodoConCondicion(e => e.FicEstadoRegistro == "activo" && e.programaFormacion.Centro.CenCodigo == id,
-                                                                    e => e.Include(c => c.programaFormacion)
-                                                                            .ThenInclude(c => c.Area)
-                                                                                .ThenInclude(c => c.AreaPsicologo)
-                                                                            .Include(c => c.programaFormacion.Centro)
-                                                                                .ThenInclude(c => c.Regional)
-                                                                            .Include(c => c.programaFormacion.NivelFormacion));
+            if (!datos.Any())
+                return NotFound("No se encontraron resultados con esos filtros.");
 
-            if (!datos.Any() || datos == null)
-            {
-                return NotFound("No se encontró ningun registro!");
-            }
+            var resultado = datos.Select(MapearFicha);
 
-            return Ok(datos);
+            return Ok(resultado);
         }
 
         [HttpPost]

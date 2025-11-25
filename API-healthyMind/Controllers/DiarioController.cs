@@ -245,10 +245,20 @@ namespace API_healthyMind.Controllers
 
             await _uow.Diario.Agregar(nuevoReg);
             await _uow.SaveChangesAsync();
+
+            var datos = (await _uow.Diario.ObtenerTodoConCondicion(e => e.DiaEstadoRegistro == "activo" && e.DiaCodigo == nuevoReg.DiaCodigo,
+                e => e.Include(c => c.aprendiz)
+                        .ThenInclude(c => c.Municipio)
+                            .ThenInclude(c => c.Regional)
+                      .Include(c => c.aprendiz.EstadoAprendiz)
+                        )).FirstOrDefault();
+
+            var resultado = MapearAprendizDiario(datos);
+
             return Ok(new
             {
                 mensaje = "Se ha creado el registro exitosamente",
-                nuevoReg
+                resultado
             });
         }
 
@@ -272,10 +282,20 @@ namespace API_healthyMind.Controllers
             _uow.Diario.Actualizar(resultado);
             await _uow.SaveChangesAsync();
 
+            var datos = (await _uow.Diario.ObtenerTodoConCondicion(e => e.DiaEstadoRegistro == "activo" 
+            && e.DiaCodigo == resultado.DiaCodigo,
+                e => e.Include(c => c.aprendiz)
+                        .ThenInclude(c => c.Municipio)
+                            .ThenInclude(c => c.Regional)
+                      .Include(c => c.aprendiz.EstadoAprendiz)
+                        )).FirstOrDefault();
+
+            var resultadoEditado = MapearAprendizDiario(datos);
+
             return Ok(new
             {
                 mensaje = "Se han editado correctamente los datos!",
-                resultado
+                resultadoEditado
             });
         }
 
@@ -283,7 +303,8 @@ namespace API_healthyMind.Controllers
         [HttpPut("eliminar/{id}")]
         public async Task<IActionResult> EliminarDiario(int id)
         {
-            var diarioEncontrado = await _uow.Diario.ObtenerTodoConCondicion(a => a.DiaCodigo == id && a.DiaEstadoRegistro == "activo");
+            var diarioEncontrado = await _uow.Diario.ObtenerTodoConCondicion(a => a.DiaCodigo == id 
+            && a.DiaEstadoRegistro == "activo");
 
             var diario = diarioEncontrado.FirstOrDefault();
 

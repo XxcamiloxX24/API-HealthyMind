@@ -2,7 +2,7 @@
 using API_healthyMind.Models;
 using API_healthyMind.Models.DTO;
 using API_healthyMind.Models.DTO.Filtros;
-
+using API_healthyMind.Repositorios.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,13 +14,13 @@ namespace API_healthyMind.Controllers
     public class CitasController : ControllerBase
     {
         private readonly IUnidadDeTrabajo _uow;
-        
+        private readonly IEmailService _emailService;
 
 
-        public CitasController(IUnidadDeTrabajo uow)
+        public CitasController(IUnidadDeTrabajo uow, IEmailService emailService)
         {
             _uow = uow;
-            
+            _emailService = emailService;
         }
 
         private static object MapearAprendiz(Aprendiz d)
@@ -155,7 +155,7 @@ namespace API_healthyMind.Controllers
         [HttpGet("listar-todas")]
         public async Task<IActionResult> ListarSeguimientos([FromQuery] PaginacionDTO p)
         {
-            if (p.TamanoPagina > 100) // límite de seguridad opcional
+            if (p.TamanoPagina > 100)
                 p.TamanoPagina = 100;
 
             var query = _uow.Citas.Query()
@@ -177,6 +177,17 @@ namespace API_healthyMind.Controllers
 
             var totalRegistros = await query.CountAsync();
 
+            if (totalRegistros == 0)
+                return NotFound("No existen registros.");
+
+            int totalPaginas = (int)Math.Ceiling(totalRegistros / (double)p.TamanoPagina);
+
+            if (p.Pagina <= 0)
+                return BadRequest("La página debe ser mayor a 0.");
+
+            if (p.Pagina > totalPaginas)
+                return NotFound($"La página {p.Pagina} no existe. Total: {totalPaginas}");
+
             var datos = await query
                 .Skip((p.Pagina - 1) * p.TamanoPagina)
                 .Take(p.TamanoPagina)
@@ -187,12 +198,15 @@ namespace API_healthyMind.Controllers
             return Ok(new
             {
                 paginaActual = p.Pagina,
+                paginaAnterior = p.Pagina > 1 ? p.Pagina - 1 : (int?)null,
+                paginaSiguiente = p.Pagina < totalPaginas ? p.Pagina + 1 : (int?)null,
                 tamanoPagina = p.TamanoPagina,
                 totalRegistros,
-                totalPaginas = (int)Math.Ceiling(totalRegistros / (double)p.TamanoPagina),
+                totalPaginas,
                 resultados
             });
         }
+
 
         [HttpGet("listar-activas")]
         public async Task<IActionResult> ListarCitasActivas([FromQuery] PaginacionDTO p)
@@ -220,6 +234,17 @@ namespace API_healthyMind.Controllers
 
             var totalRegistros = await query.CountAsync();
 
+            if (totalRegistros == 0)
+                return NotFound("No existen registros.");
+
+            int totalPaginas = (int)Math.Ceiling(totalRegistros / (double)p.TamanoPagina);
+
+            if (p.Pagina <= 0)
+                return BadRequest("La página debe ser mayor a 0.");
+
+            if (p.Pagina > totalPaginas)
+                return NotFound($"La página {p.Pagina} no existe. Total: {totalPaginas}");
+
             var datos = await query
                 .Skip((p.Pagina - 1) * p.TamanoPagina)
                 .Take(p.TamanoPagina)
@@ -230,9 +255,11 @@ namespace API_healthyMind.Controllers
             return Ok(new
             {
                 paginaActual = p.Pagina,
+                paginaAnterior = p.Pagina > 1 ? p.Pagina - 1 : (int?)null,
+                paginaSiguiente = p.Pagina < totalPaginas ? p.Pagina + 1 : (int?)null,
                 tamanoPagina = p.TamanoPagina,
                 totalRegistros,
-                totalPaginas = (int)Math.Ceiling(totalRegistros / (double)p.TamanoPagina),
+                totalPaginas,
                 resultados
             });
         }
@@ -398,10 +425,28 @@ namespace API_healthyMind.Controllers
 
             await _uow.Citas.Agregar(nuevoReg);
             await _uow.SaveChangesAsync();
+
+            var datos = (await _uow.Citas.ObtenerTodoConCondicion(c => c.CitCodigo == nuevoReg.CitCodigo,
+                c => c.Include(c => c.CitAprCodFkNavigation)
+                        .ThenInclude(c => c.Aprendiz)
+                            .ThenInclude(c => c.Municipio)
+                                .ThenInclude(c => c.Regional)
+                        .Include(c => c.CitAprCodFkNavigation.Aprendiz.EstadoAprendiz)
+                        .Include(c => c.CitAprCodFkNavigation.Ficha)
+                        .ThenInclude(c => c.programaFormacion)
+                            .ThenInclude(c => c.Centro)
+                        .Include(c => c.CitAprCodFkNavigation.Ficha)
+                            .ThenInclude(c => c.programaFormacion)
+                                .ThenInclude(c => c.NivelFormacion)
+                        .Include(c => c.CitAprCodFkNavigation.Ficha)
+                            .ThenInclude(c => c.programaFormacion)
+                                .ThenInclude(c => c.Area)
+                        .Include(c => c.CitPsiCodFkNavigation))).FirstOrDefault();
+            var resultado = MapearCita(datos);
             return Ok(new
             {
                 mensaje = "Se ha creado el registro exitosamente",
-                nuevoReg
+                resultado
             });
         }
 
@@ -422,7 +467,7 @@ namespace API_healthyMind.Controllers
                                             .Include(x => x.Ficha)
                                                 .ThenInclude(f => f.programaFormacion)
                                                     .ThenInclude(p => p.Area)
-                                                        .ThenInclude(a => a.AreaPsicologo) // relación área → psicólogo
+                                                        .ThenInclude(a => a.AreaPsicologo)
                                             .Where(x => x.Aprendiz.AprNroDocumento == dto.NroDocumento)
                                             .FirstOrDefaultAsync();
             var psicologoAsignado = datosAprendiz?.Ficha
@@ -460,7 +505,9 @@ namespace API_healthyMind.Controllers
             };
             await _uow.Citas.Agregar(soli);
             await _uow.SaveChangesAsync();
-            
+            await _emailService.SendAsync(soli.CitPsiCodFkNavigation.PsiCorreoInstitucional,
+                "¡Nueva solicitud de cita! - Healthy Mind",
+                $"El aprendiz {soli.CitAprCodFkNavigation.Aprendiz.AprNombre} {soli.CitAprCodFkNavigation.Aprendiz.AprApellido} de la ficha Nro {soli.CitAprCodFkNavigation.Ficha.FicCodigo} ha solicitado una cita!");
             return Ok(new
             {
                 Mensaje = "Se ha solicitado una cita correctamente",

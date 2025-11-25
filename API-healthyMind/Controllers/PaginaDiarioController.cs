@@ -168,9 +168,7 @@ namespace API_healthyMind.Controllers
             if (!grupos.Any())
                 return NotFound("No hay registros para este diario.");
 
-            // ==========================================
-            //    SI SE ENVÍA FECHA → CALCULAR LA PÁGINA
-            // ==========================================
+
             if (fecha.HasValue)
             {
                 var fechaBuscada = fecha.Value.ToDateTime(TimeOnly.MinValue);
@@ -180,7 +178,6 @@ namespace API_healthyMind.Controllers
                 if (index == -1)
                     return NotFound("No existen registros para la fecha indicada.");
 
-                // Las páginas son 1-based
                 page = index + 1;
             }
 
