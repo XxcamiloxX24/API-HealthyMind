@@ -21,10 +21,11 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("CorsPolicy", policy =>
-        policy.WithOrigins("http://127.0.0.1:7197")
-    .AllowAnyHeader()
+        policy
+            .AllowAnyOrigin()
+            .AllowAnyHeader()
             .AllowAnyMethod()
-            .AllowCredentials());
+            );
 });
 
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -36,6 +37,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 var app = builder.Build();
 
+app.UseCors("CorsPolicy");
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -43,8 +45,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
-
+//app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();

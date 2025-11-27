@@ -450,6 +450,21 @@ namespace API_healthyMind.Controllers
             });
         }
 
+        [HttpGet("test-email")]
+        public async Task<IActionResult> TestEmail()
+        {
+            try
+            {
+                await _emailService.SendAsync("camilovillalobos252@gmail.com", "Test", "Probando...");
+                return Ok(new { message = "OK enviado" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = ex.ToString() });
+            }
+        }
+
+
         [HttpPost("solicitar-cita")]
         public async Task<IActionResult> solicitarCita([FromBody] SolicitudCitaDTO dto)
         {

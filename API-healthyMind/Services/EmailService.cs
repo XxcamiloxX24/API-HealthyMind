@@ -17,19 +17,30 @@ namespace API_healthyMind.Services
 
         public async Task SendAsync(string to, string subject, string body)
         {
-            var smtp = new SmtpClient()
+            try
             {
-                Host = _config["Email:Host"],
-                Port = int.Parse(_config["Email:Port"]),
-                Credentials = new NetworkCredential(
-                    _config["Email:User"],
-                    _config["Email:Pass"]
-                ),
-                EnableSsl = true
-            };
+                var smtp = new SmtpClient()
+                {
+                    Host = _config["Email:Host"],
+                    Port = int.Parse(_config["Email:Port"]),
+                    Credentials = new NetworkCredential(
+                        _config["Email:User"],
+                        _config["Email:Pass"]),
+                    EnableSsl = true,
+                    Timeout = 5000
+                };
 
-            var mail = new MailMessage(_config["Email:User"], to, subject, body);
-            await smtp.SendMailAsync(mail);
+                var mail = new MailMessage(_config["Email:User"], to, subject, body);
+
+                await smtp.SendMailAsync(mail);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("ERROR SMTP: " + ex.ToString());
+                
+                throw;
+            }
         }
+
     }
 }
