@@ -105,7 +105,19 @@ namespace API_healthyMind.Controllers
             return Ok(datos);
         }
 
+        [HttpGet("estadistica/total-activos")]
+        public async Task<IActionResult> GetTotalPsicologosActivos()
+        {
+            var total = await _uow.Psicologo
+                .Query()
+                .Where(a => a.PsiEstadoRegistro == "activo")
+                .CountAsync();
 
+            return Ok(new
+            {
+                totalPsicologos = total
+            });
+        }
 
         [HttpPost]
         public async Task<IActionResult> CrearArea([FromBody] PsicologoDTO nuevoPsicologo)

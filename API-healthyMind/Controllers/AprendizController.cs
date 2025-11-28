@@ -193,6 +193,51 @@ namespace API_healthyMind.Controllers
             return Ok(resultados);
         }
 
+        [HttpGet("estadistica/crecimiento-mensual")]
+        public async Task<IActionResult> GetCrecimientoMensual()
+        {
+            var ahora = DateTime.Now;
+            var mesActual = ahora.Month;
+            var mesAnterior = ahora.AddMonths(-1).Month;
+
+            var query = _uow.Aprendiz.Query()
+                .Where(a => a.AprEstadoRegistro == "activo");
+
+            var totalMesActual = await query.CountAsync(a => a.AprFechaCreacion.Month == mesActual);
+            var totalMesAnterior = await query.CountAsync(a => a.AprFechaCreacion.Month == mesAnterior);
+            var totalGeneral = await query.CountAsync();
+
+            double promedio = totalGeneral / 12.0;
+
+            double porcentaje = totalMesAnterior == 0
+                ? 100
+                : ((double)(totalMesActual - totalMesAnterior) / totalMesAnterior) * 100;
+
+            return Ok(new
+            {
+                totalMesActual,
+                totalMesAnterior,
+                promedioMensual = Math.Round(promedio, 1),
+                porcentajeCrecimiento = Math.Round(porcentaje, 2)
+            });
+        }
+
+
+        [HttpGet("estadistica/total-registrados")]
+        public async Task<IActionResult> GetTotalAprendicesRegistrados()
+        {
+            var total = await _uow.Aprendiz
+                .Query()
+                .Where(a => a.AprEstadoRegistro == "activo")
+                .CountAsync();
+
+            return Ok(new
+            {
+                totalAprendices = total
+            });
+        }
+
+
         [HttpGet("estadistica/por-mes")]
         public async Task<IActionResult> GetRegistrosPorMes()
         {

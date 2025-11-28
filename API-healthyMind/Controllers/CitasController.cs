@@ -82,14 +82,15 @@ namespace API_healthyMind.Controllers
                     d.Ficha.FicFechaInicio,
                     d.Ficha.FicFechaFin,
                     d.Ficha.FicEstadoFormacion,
-                    ProgramaFormacion = new
+                    ProgramaFormacion = d.Ficha == null ? null : new
                     {
                         d.Ficha.programaFormacion.ProgCodigo,
                         d.Ficha.programaFormacion.ProgNombre,
                         d.Ficha.programaFormacion.ProgModalidad,
                         d.Ficha.programaFormacion.ProgFormaModalidad,
                         d.Ficha.programaFormacion.NivelFormacion,
-                        Area = new {
+                        Area = d.Ficha.programaFormacion.Area == null ? null : new
+                        {
                             d.Ficha.programaFormacion.Area.AreaCodigo,
                             d.Ficha.programaFormacion.Area.AreaNombre,
                         },
@@ -355,7 +356,9 @@ namespace API_healthyMind.Controllers
         public async Task<IActionResult> GetSeguimientosIniciadosPorMes()
         {
             var resultado = await _uow.Citas.Query()
-                .Where(x => x.CitEstadoRegistro == "activo")
+                .Where(x => x.CitEstadoRegistro == "activo" &&
+                    x.CitEstadoCita != "pendiente" &&
+                    x.CitFechaProgramada != null)
                 .GroupBy(x => new
                 {
                     Año = x.CitFechaProgramada.Value.Year,
@@ -374,11 +377,139 @@ namespace API_healthyMind.Controllers
             return Ok(resultado);
         }
 
+        [HttpGet("estadistica/actividad-exitosa")]
+        public async Task<IActionResult> GetActividadExitosa()
+        {
+            var total = await _uow.Citas.Query().CountAsync();
+            var exitosas = await _uow.Citas.Query().CountAsync(c => c.CitEstadoCita == "Realizada");
+
+            double porcentaje = total == 0 ? 0 : (double)exitosas / total * 100;
+
+            return Ok(new
+            {
+                totalCitas = total,
+                exitosas,
+                porcentaje = Math.Round(porcentaje, 2)
+            });
+        }
+
+        [HttpGet("citas/estado-proceso")]
+        public async Task<IActionResult> GetCitasEnProceso()
+        {
+            // Estados considerados "en proceso"
+            var estadosProceso = new[] { "pendiente", "programada", "reprogramada" };
+
+            // Total de citas
+            var totalCitas = await _uow.Citas.Query().CountAsync();
+
+            // Si no hay citas, evitar división entre cero
+            if (totalCitas == 0)
+            {
+                return Ok(new
+                {
+                    totalCitas = 0,
+                    citasEnProceso = 0,
+                    porcentajeEnProceso = 0,
+                    detalle = new object[] { }
+                });
+            }
+
+            // Citas en proceso
+            var detalle = await _uow.Citas.Query()
+                .Where(c => estadosProceso.Contains(c.CitEstadoCita))
+                .GroupBy(c => c.CitEstadoCita)
+                .Select(g => new
+                {
+                    estado = g.Key,
+                    cantidad = g.Count()
+                })
+                .ToListAsync();
+
+            var citasEnProceso = detalle.Sum(d => d.cantidad);
+
+            // Calcular porcentaje
+            var porcentaje = Math.Round(((double)citasEnProceso / totalCitas) * 100, 2);
+
+            return Ok(new
+            {
+                totalCitas,
+                citasEnProceso,
+                porcentajeEnProceso = porcentaje,
+                detalle
+            });
+        }
+
+
+        [HttpGet("citas/estado-incidencias")]
+        public async Task<IActionResult> GetCitasincidencias()
+        {
+            // Estados considerados "en proceso"
+            var estadosProceso = new[] { "cancelada", "no asistió" };
+
+            // Total de citas
+            var totalCitas = await _uow.Citas.Query().CountAsync();
+
+            // Si no hay citas, evitar división entre cero
+            if (totalCitas == 0)
+            {
+                return Ok(new
+                {
+                    totalCitas = 0,
+                    citasEnProceso = 0,
+                    porcentajeEnProceso = 0,
+                    detalle = new object[] { }
+                });
+            }
+
+            // Citas en proceso
+            var detalle = await _uow.Citas.Query()
+                .Where(c => estadosProceso.Contains(c.CitEstadoCita))
+                .GroupBy(c => c.CitEstadoCita)
+                .Select(g => new
+                {
+                    estado = g.Key,
+                    cantidad = g.Count()
+                })
+                .ToListAsync();
+
+            var citasEnIncidencias = detalle.Sum(d => d.cantidad);
+
+            // Calcular porcentaje
+            var porcentaje = Math.Round(((double)citasEnIncidencias / totalCitas) * 100, 2);
+
+            return Ok(new
+            {
+                totalCitas,
+                citasEnIncidencias,
+                porcentajeEnProceso = porcentaje,
+                detalle
+            });
+        }
+
+
+        [HttpGet("estadistica/por-estado")]
+        public async Task<IActionResult> GetCantidadCitasPorEstado()
+        {
+            var resultado = await _uow.Citas.Query()
+                .Where(x => x.CitEstadoRegistro == "activo")
+                .GroupBy(x => x.CitEstadoCita)
+                .Select(g => new {
+                    EstadoCita = g.Key,      // Programada, Reprogramada, etc.
+                    Total = g.Count()
+                })
+                .OrderBy(x => x.EstadoCita)
+                .ToListAsync();
+
+            return Ok(resultado);
+        }
+
         [HttpGet("estadistica/por-dia")]
         public async Task<IActionResult> GetSeguimientosFinalizadosPorMes()
         {
             var resultado = await _uow.Citas.Query()
-                .Where(x => x.CitEstadoRegistro == "activo")
+                .Where(x => x.CitEstadoRegistro == "activo" &&
+                    x.CitEstadoCita != "pendiente" &&
+                    x.CitFechaProgramada != null)
                 .GroupBy(x => new
                 {
                     Año = x.CitFechaProgramada.Value.Year,
