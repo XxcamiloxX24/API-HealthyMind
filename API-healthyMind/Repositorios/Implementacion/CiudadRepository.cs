@@ -35,5 +35,17 @@ namespace API_healthyMind.Repositorios.Implementacion
             }
             return await query.ToListAsync();
         }
+
+        public async Task<IEnumerable<Ciudad>> Buscar(
+            Expression<Func<Ciudad, bool>> filtro,
+            Func<IQueryable<Ciudad>, IQueryable<Ciudad>> include = null)
+        {
+            IQueryable<Ciudad> query = _dbSet;
+
+            if (include != null)
+                query = include(query);
+
+            return await query.Where(filtro).ToListAsync();
+        }
     }
 }

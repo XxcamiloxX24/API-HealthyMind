@@ -28,7 +28,6 @@ public partial class Ficha
     [JsonIgnore]
     public int? FicProgramaFk { get; set; }
     public virtual Programaformacion? programaFormacion { get; set; }
-    [JsonIgnore]
     public string? FicEstadoRegistro { get; set; }
 
     [JsonIgnore]

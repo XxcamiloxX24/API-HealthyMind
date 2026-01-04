@@ -32,6 +32,20 @@ namespace API_healthyMind.Controllers
             return Ok(datos);
         }
 
-       
+
+        [HttpGet("buscar")]
+        public async Task<IActionResult> Buscar([FromQuery] string texto)
+        {
+            if (string.IsNullOrWhiteSpace(texto) || texto.Length < 3)
+                return BadRequest("Debe escribir al menos 3 caracteres.");
+
+            var datos = await _uow.Ciudad.Buscar(
+                c => EF.Functions.Like(c.CiuNombre, $"%{texto}%"),
+                include: q => q.Include(c => c.Regional)
+            );
+
+            return Ok(datos);
+        }
+
     }
 }

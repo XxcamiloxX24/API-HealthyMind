@@ -8,6 +8,7 @@ namespace API_healthyMind.Data
         private readonly AppDbContext _appDbContext;
 
         public IAprendizFichaRepository AprendizFicha {  get; }
+        public ICardsInfoRepository CardsInfo { get; }
         public IVerificationCodeRepository VerificationCode { get; }
         public IAprendizRepository Aprendiz {  get; }
         public IAreaRepository Area {  get; }
@@ -32,6 +33,7 @@ namespace API_healthyMind.Data
         public ITestPreguntasRepository TestPreguntas { get; }
 
         public UnidadDeTrabajo(AppDbContext appDbContext, IAprendizFichaRepository aprendizFicha,
+            ICardsInfoRepository cardsInfo,
             IAprendizRepository aprendiz,
             IVerificationCodeRepository verificationCode,
             IAreaRepository area,
@@ -56,6 +58,7 @@ namespace API_healthyMind.Data
             ITestPreguntasRepository testPreguntas)
         {
             _appDbContext = appDbContext;
+            CardsInfo = cardsInfo;
             AprendizFicha = aprendizFicha;
             Aprendiz = aprendiz;
             VerificationCode = verificationCode;

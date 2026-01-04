@@ -6,6 +6,7 @@ namespace API_healthyMind.Data
     {
         IAprendizFichaRepository AprendizFicha { get; }
         IVerificationCodeRepository VerificationCode { get; }
+        ICardsInfoRepository CardsInfo { get; }
         IAprendizRepository Aprendiz { get; }
         IAreaRepository Area { get; }
         ICategoriaPreguntasRepository CategoriaPreguntas { get; }

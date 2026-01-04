@@ -10,6 +10,7 @@ namespace API_healthyMind.Services
         {
             services.AddScoped<IAprendizFichaRepository, AprendizFichaRepository>();
             services.AddScoped<IAprendizRepository, AprendizRepository>();
+            services.AddScoped<ICardsInfoRepository, CardsInfoRepository>();
             services.AddScoped<IVerificationCodeRepository, VerificationCodeRepository>();
             services.AddScoped<IAreaRepository, AreaRepository>();
             services.AddScoped<ICategoriaPreguntasRepository, CategoriaPreguntasRepository>();

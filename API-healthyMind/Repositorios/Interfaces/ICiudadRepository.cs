@@ -11,5 +11,10 @@ namespace API_healthyMind.Repositorios.Interfaces
         Task<IEnumerable<Ciudad>> ObtenerPorRegional(
             Expression<Func<Ciudad, bool>> condicion,
             Func<IQueryable<Ciudad>, IQueryable<Ciudad>> include);
+
+        Task<IEnumerable<Ciudad>> Buscar(
+            Expression<Func<Ciudad, bool>> filtro,
+            Func<IQueryable<Ciudad>, IQueryable<Ciudad>> include = null
+    );
     }
 }

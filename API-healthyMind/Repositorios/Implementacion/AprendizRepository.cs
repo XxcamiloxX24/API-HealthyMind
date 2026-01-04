@@ -14,6 +14,18 @@ namespace API_healthyMind.Repositorios.Implementacion
             _dbSet = context.Set<Aprendiz>();
         }
 
+        public async Task<IEnumerable<Aprendiz>> Buscar(
+            Expression<Func<Aprendiz, bool>> filtro,
+            Func<IQueryable<Aprendiz>, IQueryable<Aprendiz>> include = null)
+        {
+            IQueryable<Aprendiz> query = _dbSet;
+
+            if (include != null)
+                query = include(query);
+
+            return await query.Where(filtro).ToListAsync();
+        }
+
         public async Task<bool> Existe(Expression<Func<Aprendiz, bool>> predicado)
         {
             return await _dbset.AnyAsync(predicado);

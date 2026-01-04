@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using static API_healthyMind.Controllers.AprendizController;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace API_healthyMind.Controllers
@@ -79,6 +80,88 @@ namespace API_healthyMind.Controllers
             {
                 return NotFound("No se encontró el registro!");
             }
+
+            return Ok(datos);
+        }
+
+        [HttpGet("listar")]
+        public async Task<IActionResult> ListarFichas([FromQuery] PaginacionDTO p)
+        {
+            if (p.TamanoPagina > 100)
+                p.TamanoPagina = 100;
+
+            var query = _uow.Ficha.Query()
+                        .Include(c => c.programaFormacion)
+                            .ThenInclude(c => c.Area)
+                                .ThenInclude(c => c.AreaPsicologo)
+                        .Include(c => c.programaFormacion)
+                            .ThenInclude(c => c.Centro)
+                                .ThenInclude(c => c.Regional)
+                        .Include(c => c.programaFormacion)
+                            .ThenInclude(c => c.NivelFormacion)
+                        .OrderByDescending(a => a.FicCodigo);
+
+            var totalRegistros = await query.CountAsync();
+
+            if (totalRegistros == 0)
+                return NotFound("No existen registros.");
+
+            int totalPaginas = (int)Math.Ceiling(totalRegistros / (double)p.TamanoPagina);
+
+            if (p.Pagina <= 0)
+                return BadRequest("La página debe ser mayor a 0.");
+
+            if (p.Pagina > totalPaginas)
+                return NotFound($"La página {p.Pagina} no existe. Total: {totalPaginas}");
+
+            var datos = await query
+                .Skip((p.Pagina - 1) * p.TamanoPagina)
+                .Take(p.TamanoPagina)
+                .ToListAsync();
+
+            
+
+            return Ok(new
+            {
+                paginaActual = p.Pagina,
+                paginaAnterior = p.Pagina > 1 ? p.Pagina - 1 : (int?)null,
+                paginaSiguiente = p.Pagina < totalPaginas ? p.Pagina + 1 : (int?)null,
+                tamanoPagina = p.TamanoPagina,
+                totalRegistros,
+                totalPaginas,
+                datos
+            });
+        }
+
+        [HttpGet("busqueda-dinamica")]
+        public async Task<IActionResult> BuscarDinamico([FromQuery] string texto)
+        {
+            if (string.IsNullOrWhiteSpace(texto) || texto.Length < 3)
+                return BadRequest("Debe escribir al menos 3 caracteres.");
+
+            texto = texto.ToLower();
+
+            var query = _uow.Ficha.Query()
+                .Include(c => c.programaFormacion)
+                    .ThenInclude(c => c.Area)
+                        .ThenInclude(c => c.AreaPsicologo)
+                .Include(c => c.programaFormacion)
+                    .ThenInclude(c => c.Centro)
+                        .ThenInclude(c => c.Regional)
+                .Include(c => c.programaFormacion)
+                    .ThenInclude(c => c.NivelFormacion)
+                .Where(a =>
+                    a.FicCodigo.ToString().ToLower().Contains(texto) ||
+                    a.FicJornada.ToLower().Contains(texto) ||
+                    (a.programaFormacion != null &&
+                       (a.programaFormacion.ProgNombre.ToLower().Contains(texto)))
+                );
+
+            
+            var datos = await query.ToListAsync();
+
+            if (!datos.Any())
+                return NotFound("No se encontraron resultados.");
 
             return Ok(datos);
         }
@@ -231,21 +314,39 @@ namespace API_healthyMind.Controllers
 
 
 
-        [HttpPut("eliminar/{id}")]
+        [HttpPut("cambiar-estado/{id}")]
         public async Task<IActionResult> EliminarFicha(int id)
         {
             var fichaEncontrada = await _uow.Ficha.ObtenerPorID(id);
-            if (fichaEncontrada.FicEstadoRegistro == "inactivo" || fichaEncontrada == null)
+            var estadoActual = fichaEncontrada.FicEstadoRegistro?.ToLower();
+
+            if (estadoActual == "activo")
             {
-                return NotFound("No se encontró este ID");
+                fichaEncontrada.FicEstadoRegistro = "inactivo";            
+            } else
+            {
+                fichaEncontrada.FicEstadoRegistro = "activo";            
             }
-            fichaEncontrada.FicEstadoRegistro = "inactivo";
 
             _uow.Ficha.Actualizar(fichaEncontrada);
             await _uow.SaveChangesAsync();
 
+            return Ok("Se ha cambiado el estado correctamente!");
+        }
+
+
+        [HttpDelete("eliminar/{id}")]
+        public async Task<IActionResult> EliminarDefinitivo(int id)
+        {
+            var aprEncontrado = await _uow.Ficha.ObtenerPorID(id);
+            if (aprEncontrado == null)
+            {
+                return NotFound("No se encontró este ID");
+            }
+
+            _uow.Ficha.Eliminar(aprEncontrado);
+            await _uow.SaveChangesAsync();
             return Ok("Se ha eliminado correctamente!");
         }
-        
     }
 }

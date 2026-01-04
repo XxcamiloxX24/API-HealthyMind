@@ -10,7 +10,7 @@
         public string? AprSegundoNombre { get; set; }
 
         public string? AprApellido { get; set; }
-
+        
         public string? AprSegundoApellido { get; set; }
 
         public string? AprCorreoInstitucional { get; set; }

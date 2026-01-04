@@ -25,67 +25,133 @@ namespace API_healthyMind.Controllers
             _uow = uow;
             _emailService = emailService;
         }
+
+        private object MapearPsicologo(Psicologo p)
+        {
+            return new
+            {
+                psiCodigo = p.PsiCodigo,
+                psiDocumento = p.PsiDocumento,
+                psiNombre = p.PsiNombre,
+                psiApellido = p.PsiApellido,
+                psiEspecialidad = p.PsiEspecialidad,
+                psiTelefono = p.PsiTelefono,
+                psiFechaRegistro = p.PsiFechaRegistro,
+                psiFechaNac = p.PsiFechaNac,
+                psiDireccion = p.PsiDireccion,
+                psiCorreoInstitucional = p.PsiCorreoInstitucional,
+                psiCorreoPersonal = p.PsiCorreoPersonal,
+                psiEstadoRegistro = p.PsiEstadoRegistro  
+            };
+        }
+
         // GET: NivelFormacionController
         [HttpGet]
         public async Task<IActionResult> ObtenerTodos()
         {
-            var datos = await _uow.Psicologo.ObtenerTodoConCondicion(e => e.PsiEstadoRegistro == "activo");
-
-            
-            return Ok(datos);
+            var datos = await _uow.Psicologo.ObtenerTodos();
+            if (!datos.Any())
+            {
+                return NotFound("No se encontraron registros, esta vacio!");
+            }
+            var resultados = datos.Select(c => MapearPsicologo(c));
+            return Ok(resultados);
         }
 
         [HttpGet("listar")]
         public async Task<IActionResult> ListarPsicologos([FromQuery] PaginacionDTO p)
         {
-            if (p.TamanoPagina > 100) 
+            if (p.TamanoPagina > 100)
                 p.TamanoPagina = 100;
 
-            var query = _uow.Psicologo.Query();
+            var query = _uow.Psicologo.Query().OrderByDescending(e => e.PsiCodigo);
 
             var totalRegistros = await query.CountAsync();
+
+            if (totalRegistros == 0)
+                return NotFound("No existen registros.");
+
+            int totalPaginas = (int)Math.Ceiling(totalRegistros / (double)p.TamanoPagina);
+
+            if (p.Pagina <= 0)
+                return BadRequest("La página debe ser mayor a 0.");
+
+            if (p.Pagina > totalPaginas)
+                return NotFound($"La página {p.Pagina} no existe. Total: {totalPaginas}");
 
             var datos = await query
                 .Skip((p.Pagina - 1) * p.TamanoPagina)
                 .Take(p.TamanoPagina)
                 .ToListAsync();
 
+            var resultados = datos.Select(c => MapearPsicologo(c));
+
             return Ok(new
             {
                 paginaActual = p.Pagina,
+                paginaAnterior = p.Pagina > 1 ? p.Pagina - 1 : (int?)null,
+                paginaSiguiente = p.Pagina < totalPaginas ? p.Pagina + 1 : (int?)null,
                 tamanoPagina = p.TamanoPagina,
                 totalRegistros,
-                totalPaginas = (int)Math.Ceiling(totalRegistros / (double)p.TamanoPagina),
-                datos
+                totalPaginas,
+                resultados
             });
         }
 
+
         [HttpGet("{id}")]
-        public async Task<IActionResult> ObtenerPorDocumento(string documento)
+        public async Task<IActionResult> ObtenerPorDocumento(int id)
         {
-            var datos = await _uow.Psicologo.ObtenerTodoConCondicion(e => e.PsiDocumento == documento && e.PsiEstadoRegistro == "activo");
+            var datos = await _uow.Psicologo.ObtenerTodoConCondicion(e => e.PsiCodigo == id);
 
             if (!datos.Any())
             {
-                return NotFound("No se encontró este documento");
+                return NotFound("No se encontró este id");
             }
 
-            return Ok(datos);
+            var resultados = datos.Select(c => MapearPsicologo(c));
+
+            return Ok(resultados);
         }
 
-        [HttpGet("especialidad/{especialidad}")]
-        public async Task<IActionResult> ObtenerPorNombre(string especialidad)
+        [HttpGet("busqueda-dinamica")]
+        public async Task<IActionResult> BuscarDinamico([FromQuery] string texto)
         {
-            var datos = await _uow.Psicologo.ObtenerTodoConCondicion(e => e.PsiEspecialidad.ToLower() == especialidad.ToLower() && e.PsiEstadoRegistro == "activo");
+            if (string.IsNullOrWhiteSpace(texto) || texto.Length < 3)
+                return BadRequest("Debe escribir al menos 3 caracteres.");
+
+            texto = texto.ToLower();
+
+            var query = _uow.Psicologo.Query()
+                .Where(a =>
+                    EF.Functions.Like(a.PsiCodigo.ToString(), $"%{texto}%") ||
+                    a.PsiDocumento.ToLower().Contains(texto) ||
+
+                    a.PsiNombre.ToLower().Contains(texto) ||
+                    a.PsiApellido.ToLower().Contains(texto) ||
+                    a.PsiCorreoPersonal.ToLower().Contains(texto) ||
+                    a.PsiCorreoInstitucional.ToLower().Contains(texto) ||
+                    a.PsiTelefono.ToLower().Contains(texto) ||
+
+                    a.PsiEspecialidad.ToLower().Contains(texto) ||
+                    a.PsiDireccion.ToLower().Contains(texto) ||
+
+                    a.PsiEstadoRegistro.ToLower().Contains(texto)
+                );
+
+           
+            var datos = await query.ToListAsync();
 
             if (!datos.Any())
-            {
-                return NotFound("No se encontró ningun registro");
-            }
+                return NotFound("No se encontraron resultados.");
 
-            return Ok(datos);
+          
+            var resultado = datos.Select(MapearPsicologo);
+
+            return Ok(resultado);
         }
 
+        
         [HttpGet("area/{areaNombre}")]
         public async Task<IActionResult> ObtenerPorArea(string areaNombre)
         {
@@ -101,8 +167,9 @@ namespace API_healthyMind.Controllers
 
             if (!datos.Any())
                 return NotFound("No se encontró ningún registro");
+            var resultados = datos.Select(c => MapearPsicologo(c));
 
-            return Ok(datos);
+            return Ok(resultados);
         }
 
         [HttpGet("estadistica/total-activos")]
@@ -140,8 +207,7 @@ namespace API_healthyMind.Controllers
                 PsiDireccion = nuevoPsicologo.PsiDireccion,
                 PsiCorreoInstitucional = nuevoPsicologo.PsiCorreoInstitucional,
                 PsiCorreoPersonal = nuevoPsicologo.PsiCorreoPersonal,
-                PsiPassword = BCrypt.Net.BCrypt.HashPassword(nuevoPsicologo.PsiPassword),
-                PsiFirma = nuevoPsicologo.PsiFirma
+                PsiPassword = BCrypt.Net.BCrypt.HashPassword(nuevoPsicologo.PsiPassword)
             };
             await _uow.Psicologo.Agregar(psicNew);
             await _uow.SaveChangesAsync();
@@ -158,14 +224,27 @@ namespace API_healthyMind.Controllers
             });
         }
 
-        [HttpPut("editar/{documento}")]
-        public async Task<IActionResult> EditarArea(int documento, [FromBody] PsicologoDTO psicRecibido)
+        public class EditarPsicDTO
         {
-            if (documento.ToString() == "")
+            public string? PsiDocumento { get; set; }
+            public string? PsiNombre { get; set; }
+            public string? PsiApellido { get; set; }
+            public string? PsiEspecialidad { get; set; }
+            public string? PsiTelefono { get; set; }
+            public DateOnly? PsiFechaNac { get; set; }
+            public string? PsiDireccion { get; set; }
+            public string? PsiCorreoInstitucional { get; set; }
+            public string? PsiCorreoPersonal { get; set; }
+        }
+
+        [HttpPut("editar/{id}")]
+        public async Task<IActionResult> EditarArea(int id, [FromBody] EditarPsicDTO psicRecibido)
+        {
+            if (id.ToString() == "")
             {
                 return BadRequest("El ID no debe ser nulo");
             }
-            var psicEncontrado = await _uow.Psicologo.ObtenerPorID(documento);
+            var psicEncontrado = await _uow.Psicologo.ObtenerPorID(id);
             
             if (psicEncontrado == null)
             {
@@ -181,7 +260,6 @@ namespace API_healthyMind.Controllers
             psicEncontrado.PsiDireccion = psicRecibido.PsiDireccion;
             psicEncontrado.PsiCorreoInstitucional = psicRecibido.PsiCorreoInstitucional;
             psicEncontrado.PsiCorreoPersonal = psicRecibido.PsiCorreoPersonal;
-            psicEncontrado.PsiFirma = psicRecibido.PsiFirma;
 
 
 
@@ -280,19 +358,44 @@ namespace API_healthyMind.Controllers
             return Ok("Contraseña actualizada correctamente.");
         }
 
-
-        [HttpPut("eliminar/{id}")]
-        public async Task<IActionResult> EliminarPsicologo(string id)
+        [HttpPut("cambiar-estado/{id}")]
+        public async Task<IActionResult> CambiarEstadöPsicologo(int id)
         {
-            var psicEncontrado = await _uow.Psicologo.ObtenerTodoConCondicion(c => c.PsiDocumento == id);
+            var aprEncontrado = await _uow.Psicologo.ObtenerTodoConCondicion(a => a.PsiCodigo == id);
+
+            var user = aprEncontrado.FirstOrDefault();
+
+            if (user == null)
+                return NotFound("No se encontró este id.");
+
+            var estadoActual = user.PsiEstadoRegistro?.ToLower();
+
+            if (estadoActual == "activo")
+            {
+                user.PsiEstadoRegistro = "inactivo";
+        
+            }
+            else
+            {
+                user.PsiEstadoRegistro = "activo";
+            }
+
+            _uow.Psicologo.Actualizar(user);
+            await _uow.SaveChangesAsync();
+            return Ok($"Estado actualizado a: {user.PsiEstadoRegistro}");
+        }
+
+        [HttpDelete("eliminar/{id}")]
+        public async Task<IActionResult> EliminarPsicologo(int id)
+        {
+            var psicEncontrado = await _uow.Psicologo.ObtenerTodoConCondicion(c => c.PsiCodigo == id);
             var datos = psicEncontrado.FirstOrDefault();
-            if (datos.PsiEstadoRegistro == "inactivo" || datos == null)
+            if (datos == null)
             {
                 return NotFound("No se encontró este ID");
             }
-            datos.PsiEstadoRegistro = "inactivo";
 
-            _uow.Psicologo.Actualizar(datos);
+            _uow.Psicologo.Eliminar(datos);
             await _uow.SaveChangesAsync();
 
             return Ok("Se ha eliminado correctamente!");

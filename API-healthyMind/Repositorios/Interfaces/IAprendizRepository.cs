@@ -7,5 +7,10 @@ namespace API_healthyMind.Repositorios.Interfaces
     {
         Task<bool> Existe(Expression<Func<Aprendiz, bool>> predicado);
 
+        Task<IEnumerable<Aprendiz>> Buscar(
+            Expression<Func<Aprendiz, bool>> filtro,
+            Func<IQueryable<Aprendiz>, IQueryable<Aprendiz>> include = null
+        );
+
     }
 }

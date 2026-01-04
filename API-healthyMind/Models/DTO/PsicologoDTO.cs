@@ -24,8 +24,6 @@ namespace API_healthyMind.Models.DTO
 
         public string? PsiCorreoPersonal { get; set; }
 
-        
         public string? PsiPassword { get; set; }
-        public byte[]? PsiFirma { get; set; }
     }
 }

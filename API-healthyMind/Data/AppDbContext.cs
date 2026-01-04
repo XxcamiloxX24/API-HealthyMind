@@ -18,6 +18,7 @@ public partial class AppDbContext : DbContext
     }
 
     public virtual DbSet<Aprendiz> Aprendizs { get; set; }
+    public virtual DbSet<CardsInfo> CardsInfo { get; set; }
     public virtual DbSet<VerificationCode> VerificationCodes { get; set; }
 
     public virtual DbSet<AprendizFicha> AprendizFichas { get; set; }
@@ -517,6 +518,33 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(100)
                 .HasComment("Nombre del estado")
                 .HasColumnName("est_apr_nombre");
+        });
+
+        modelBuilder.Entity<CardsInfo>(entity =>
+        {
+            entity.HasKey(e => e.carCodigo).HasName("PRIMARY");
+
+            entity.ToTable("cards_info");
+            entity.Property(e => e.carCodigo)
+                .HasColumnType("int(40)")
+                .HasColumnName("car_codigo");
+
+            entity.Property(e => e.carTitulo)
+                .HasMaxLength(200)
+                .HasColumnName("car_titulo");
+
+            entity.Property(e => e.carDescripcion)
+                .HasMaxLength(500)
+                .HasColumnName("car_descripcion");
+
+            entity.Property(e => e.carLink)
+                .HasMaxLength(500)
+                .HasColumnName("car_link");
+
+            entity.Property(e => e.carEstadoRegistro)
+                .HasDefaultValueSql("'activo'")
+                .HasColumnType("enum('activo','inactivo')")
+                .HasColumnName("car_estado_registro");
         });
 
         modelBuilder.Entity<Ficha>(entity =>
