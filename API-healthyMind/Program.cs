@@ -15,12 +15,17 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
-Console.WriteLine("Cadena de conexión cargada: " + connStr);
+#if DEBUG
+if (!string.IsNullOrEmpty(connStr)) Console.WriteLine("Cadena de conexión cargada.");
+#endif
 
 builder.Services.AddMyFeatureServices();
 
 builder.Configuration.AddJsonFile("appsettings.json");
-var secretkey = builder.Configuration["settings:secretkey"];
+var secretkey = builder.Configuration["settings:secretkey"] 
+    ?? Environment.GetEnvironmentVariable("JWT_SecretKey");
+if (string.IsNullOrEmpty(secretkey))
+    throw new InvalidOperationException("No se configuró 'settings:secretkey' en appsettings ni la variable de entorno JWT_SecretKey.");
 var keyBytes = Encoding.UTF8.GetBytes(secretkey);
 
 builder.Services.AddAuthentication(config =>
