@@ -9,6 +9,7 @@ namespace API_healthyMind.Repositorios.Interfaces
         Task<IEnumerable<T>> ObtenerTodoConCondicion(
             Expression<Func<T, bool>> condicion,
             params Expression<Func<IQueryable<T>, IQueryable<T>>>[] includes);
+        Task<T?> ObtenerPrimero(Expression<Func<T, bool>> condicion);
         Task<IEnumerable<T>> ObtenerTodos();
         Task<T> ObtenerPorID(int id);
         Task Agregar(T entity);

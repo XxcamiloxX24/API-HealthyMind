@@ -37,6 +37,10 @@ namespace API_healthyMind.Repositorios.Implementacion
 
             return await query.ToListAsync();
         }
+        public async Task<T?> ObtenerPrimero(Expression<Func<T, bool>> condicion)
+        {
+            return await _dbset.FirstOrDefaultAsync(condicion);
+        }
         public async Task<IEnumerable<T>> ObtenerTodos() => await _dbset.ToListAsync();
         public async Task<T> ObtenerPorID(int id) => await _dbset.FindAsync(id);
         public async Task Agregar(T entity) => await _dbset.AddAsync(entity);

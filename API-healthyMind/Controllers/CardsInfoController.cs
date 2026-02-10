@@ -1,11 +1,13 @@
 ﻿using API_healthyMind.Data;
 using API_healthyMind.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API_healthyMind.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Policy = "CualquierRol")]
     public class CardsInfoController : ControllerBase
     {
         private readonly IUnidadDeTrabajo _uow;
@@ -38,6 +40,7 @@ namespace API_healthyMind.Controllers
             return Ok(datos);
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPost]
         public async Task<IActionResult> crearReg([FromBody] CardsInfo card)
         {
@@ -54,6 +57,7 @@ namespace API_healthyMind.Controllers
             return Ok(card);
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPut("editar/{id}")]
         public async Task<IActionResult> editarReg(int id, [FromBody] CardsInfo card)
         {
@@ -82,6 +86,7 @@ namespace API_healthyMind.Controllers
             });
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpDelete("eliminar/{id}")]
         public async Task<IActionResult> eliminarReg(int id)
         {

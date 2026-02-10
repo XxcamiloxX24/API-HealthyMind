@@ -1,13 +1,15 @@
-﻿using API_healthyMind.Data;
+using API_healthyMind.Data;
 using API_healthyMind.Models;
 using API_healthyMind.Models.DTO;
 using API_healthyMind.Models.DTO.Filtros;
 using API_healthyMind.Repositorios.Interfaces;
 using API_healthyMind.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using System.Text.Json.Serialization;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
@@ -15,6 +17,7 @@ namespace API_healthyMind.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Policy = "CualquierRol")]
     public class AprendizController : ControllerBase
     {
         private readonly IUnidadDeTrabajo _uow;
@@ -79,7 +82,7 @@ namespace API_healthyMind.Controllers
                 EstadoRegistro = d.AprEstadoRegistro
             };
         }
-        // GET: NivelFormacionController
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet]
         public async Task<IActionResult> ObtenerTodos()
         {
@@ -99,6 +102,7 @@ namespace API_healthyMind.Controllers
         }
 
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("listar")]
         public async Task<IActionResult> ListarAprendices([FromQuery] PaginacionDTO p)
         {
@@ -146,9 +150,22 @@ namespace API_healthyMind.Controllers
 
 
 
+        /// <summary>
+        /// Obtiene un aprendiz por ID. Admin/Psicólogo: cualquier aprendiz. Aprendiz: solo su propio perfil.
+        /// </summary>
         [HttpGet("{id}")]
         public async Task<IActionResult> ObtenerPorId(int id)
         {
+            // Si es Aprendiz, solo puede consultar su propio perfil
+            if (User.IsInRole(Roles.Aprendiz))
+            {
+                // El JWT puede guardar el ID en "nameid" (serializado) o en NameIdentifier (ClaimTypes)
+                var miId = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier)
+                    ?? User.FindFirstValue("nameid");
+                if (string.IsNullOrEmpty(miId) || id.ToString() != miId)
+                    return StatusCode(403, "Solo puedes consultar tu propio perfil.");
+            }
+
             var datos = await _uow.Aprendiz.ObtenerTodoConCondicion(e => e.AprCodigo == id,
                 e => e.Include(c => c.Municipio)
                         .ThenInclude(c => c.Regional)
@@ -163,6 +180,7 @@ namespace API_healthyMind.Controllers
             return Ok(resultado);
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("busqueda-dinamica")]
         public async Task<IActionResult> BuscarDinamico([FromQuery] string texto)
         {
@@ -216,6 +234,7 @@ namespace API_healthyMind.Controllers
 
 
         [HttpGet("buscar")]
+        [Authorize(Policy = "AdministradorYPsicologo")]
         public async Task<IActionResult> Buscar([FromQuery] FiltroAprendizDTO f)
         {
             IQueryable<Aprendiz> q = _uow.Aprendiz.Query().Include(x => x.EstadoAprendiz).Include(x => x.Municipio).ThenInclude(m => m.Regional);
@@ -260,6 +279,7 @@ namespace API_healthyMind.Controllers
             return Ok(resultados);
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("estadistica/crecimiento-mensual")]
         public async Task<IActionResult> GetCrecimientoMensual()
         {
@@ -290,6 +310,7 @@ namespace API_healthyMind.Controllers
         }
 
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("estadistica/total-registrados")]
         public async Task<IActionResult> GetTotalAprendicesRegistrados()
         {
@@ -305,6 +326,7 @@ namespace API_healthyMind.Controllers
         }
 
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("estadistica/por-mes")]
         public async Task<IActionResult> GetRegistrosPorMes()
         {
@@ -321,6 +343,7 @@ namespace API_healthyMind.Controllers
             return Ok(resultado);
         }
 
+        [AllowAnonymous]
         [HttpPost("registro-inicial")]
         public async Task<IActionResult> RegistroInicial([FromBody] RegistroInicialDTO dto)
         {
@@ -366,6 +389,7 @@ namespace API_healthyMind.Controllers
             return Ok("Código enviado al correo.");
         }
 
+        [AllowAnonymous]
         [HttpPost("verificar-codigo")]
         public async Task<IActionResult> VerificarCodigo(VerificarCodigoDTO dto)
         {
@@ -385,6 +409,7 @@ namespace API_healthyMind.Controllers
             return Ok("Cuenta verificada correctamente.");
         }
 
+        [AllowAnonymous]
         [HttpPost("reenviar-codigo")]
         public async Task<IActionResult> ReenviarCodigo([FromBody] ReenviarCodigoDTO dto)
         {
@@ -423,6 +448,7 @@ namespace API_healthyMind.Controllers
             return Ok("Se envió un nuevo código de verificación.");
         }
 
+        [AllowAnonymous]
         [HttpPut("completar-informacion")]
         public async Task<IActionResult> CompletarInformacion(string documento, [FromBody] AprendizDTO nuevoAprendiz)
         {
@@ -478,6 +504,7 @@ namespace API_healthyMind.Controllers
             });
         }
 
+        [AllowAnonymous]
         [HttpPut("cambiar-correo")]
         public async Task<IActionResult> cambiarCorreo(string documento, string correo)
         {
@@ -497,6 +524,7 @@ namespace API_healthyMind.Controllers
             return Ok("Se ha actualizado correctamente!");
         }
 
+        [Authorize(Policy = "AdministradorYAprendiz")]
         [HttpPut("cambiar-password")]
         public async Task<IActionResult> CambiarPassword([FromBody] CambiarPasswordDTO dto)
         {
@@ -544,6 +572,7 @@ namespace API_healthyMind.Controllers
             return Ok("Se envió un enlace de recuperación al correo.");
         }
 
+        [AllowAnonymous]
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetearPasswordDTO dto)
         {
@@ -572,6 +601,7 @@ namespace API_healthyMind.Controllers
         }
 
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPost]
         public async Task<IActionResult> crearRegistro([FromBody] AprendizCompletoDTO aprendizNuevo)
         {
@@ -628,9 +658,21 @@ namespace API_healthyMind.Controllers
         }
 
 
+        /// <summary>
+        /// Edita la información de un aprendiz. Admin/Psicólogo: cualquier aprendiz. Aprendiz: solo su propio perfil.
+        /// </summary>
         [HttpPut("editar/{id}")]
         public async Task<IActionResult> EditarInformacion(int id, [FromBody] AprendizEditarDTO dto)
         {
+            // Si es Aprendiz, solo puede editar su propio perfil
+            if (User.IsInRole(Roles.Aprendiz))
+            {
+                var miId = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier)
+                    ?? User.FindFirstValue("nameid");
+                if (string.IsNullOrEmpty(miId) || id.ToString() != miId)
+                    return StatusCode(403, "Solo puedes editar tu propio perfil.");
+            }
+
             var aprEncontrado = await _uow.Aprendiz.ObtenerTodoConCondicion(a => a.AprCodigo == id);
 
             if (!aprEncontrado.Any())
@@ -684,6 +726,11 @@ namespace API_healthyMind.Controllers
         }
 
 
+        /// <summary>
+        /// Cambia el estado del aprendiz (activo/inactivo).
+        /// Admin/Psicólogo: pueden activar o inactivar cualquier aprendiz.
+        /// Aprendiz: solo puede desactivar su propia cuenta (soft delete - "Eliminar mi cuenta").
+        /// </summary>
         [HttpPut("cambiar-estado/{documento}")]
         public async Task<IActionResult> CambiarEstadoAprendiz(string documento, [FromBody] RazonEliminacionDTO dto)
         {
@@ -696,19 +743,43 @@ namespace API_healthyMind.Controllers
 
             var estadoActual = user.AprEstadoRegistro?.ToLower();
 
-            if (estadoActual == "activo")
+            // Si es Aprendiz, solo puede desactivar su propia cuenta (activo → inactivo)
+            if (User.IsInRole(Roles.Aprendiz))
             {
+                var idLogueado = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier)
+                    ?? User.FindFirstValue("nameid");
+                if (string.IsNullOrEmpty(idLogueado) || user.AprCodigo.ToString() != idLogueado)
+                    return StatusCode(403, "No puedes cambiar el estado de otro aprendiz.");
+
+                if (estadoActual == "inactivo")
+                    return StatusCode(403, "Solo el administrador o el psicólogo pueden reactivar tu cuenta.");
+
+                // activo → inactivo: desactivar mi cuenta
                 if (dto == null || string.IsNullOrWhiteSpace(dto.RazonEliminacion))
                     return BadRequest("Debe enviar una razón de inactivación.");
 
                 user.AprEstadoRegistro = "inactivo";
                 user.AprRazonEliminacion = dto.RazonEliminacion;
                 user.AprFechaEliminacion = DateTime.Now;
-            } else
+            }
+            else
             {
-                user.AprEstadoRegistro = "activo";
-                user.AprRazonEliminacion = null;
-                user.AprFechaEliminacion = null;
+                // Admin o Psicólogo: pueden activar e inactivar
+                if (estadoActual == "activo")
+                {
+                    if (dto == null || string.IsNullOrWhiteSpace(dto.RazonEliminacion))
+                        return BadRequest("Debe enviar una razón de inactivación.");
+
+                    user.AprEstadoRegistro = "inactivo";
+                    user.AprRazonEliminacion = dto.RazonEliminacion;
+                    user.AprFechaEliminacion = DateTime.Now;
+                }
+                else
+                {
+                    user.AprEstadoRegistro = "activo";
+                    user.AprRazonEliminacion = null;
+                    user.AprFechaEliminacion = null;
+                }
             }
 
             _uow.Aprendiz.Actualizar(user);
@@ -716,7 +787,7 @@ namespace API_healthyMind.Controllers
             return Ok($"Estado actualizado a: {user.AprEstadoRegistro}");
         }
 
-
+        [Authorize(Policy = "SoloAdministrador")]
         [HttpDelete("eliminar/{id}")]
         public async Task<IActionResult> EliminarDefinitivo(int id)
         {

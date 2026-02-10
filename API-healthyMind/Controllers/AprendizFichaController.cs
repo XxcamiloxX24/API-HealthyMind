@@ -3,6 +3,7 @@ using API_healthyMind.Models;
 using API_healthyMind.Models.DTO;
 using API_healthyMind.Models.DTO.Filtros;
 using API_healthyMind.Repositorios.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +15,7 @@ namespace API_healthyMind.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Policy = "CualquierRol")]
     public class AprendizFichaController : ControllerBase
     {
         private readonly IUnidadDeTrabajo _uow;
@@ -76,7 +78,7 @@ namespace API_healthyMind.Controllers
         {
             return new
             {
-                d.AprFicCodigo,
+                Codigo = d.AprFicCodigo,
                 Aprendiz = MapearAprendiz(d.Aprendiz),
                 Ficha = new
                 {
@@ -101,7 +103,6 @@ namespace API_healthyMind.Controllers
         }
 
 
-        // GET: NivelFormacionController
         [HttpGet]
         public async Task<IActionResult> ObtenerTodos()
         {
@@ -207,7 +208,7 @@ namespace API_healthyMind.Controllers
             return Ok(resultado);
         }
         
-
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("estadistica/por-ficha")]
         public async Task<IActionResult> GetRegistrosPorMes()
         {
@@ -278,8 +279,8 @@ namespace API_healthyMind.Controllers
         }
 
 
-        [HttpPut("eliminar")]
-        public async Task<IActionResult> EliminarAprendiz(string documento, int nroFicha)
+        [HttpPut("cambiar-estado")]
+        public async Task<IActionResult> CambiarEstado([FromBody] string documento, int nroFicha)
         {
             var aprEncontrado = await _uow.AprendizFicha.ObtenerTodoConCondicion(a => a.Aprendiz.AprNroDocumento == documento && a.Ficha.FicCodigo == nroFicha && a.AprFicEstadoRegistro == "activo");
 
@@ -293,8 +294,20 @@ namespace API_healthyMind.Controllers
             _uow.AprendizFicha.Actualizar(user);
             await _uow.SaveChangesAsync();
             return Ok("Se ha eliminado correctamente ");
+        }
 
+        
+        [Authorize(Policy = "AdministradorYPsicologo")]
+        [HttpDelete("eliminar/{id}")]
+        public async Task<IActionResult> EliminarRegistro(int id)
+        {
+            var regEncontrado = await _uow.AprendizFicha.ObtenerPorID(id);
+            if (regEncontrado == null)
+                return NotFound("No se encontró este id.");
 
+            _uow.AprendizFicha.Eliminar(regEncontrado);
+            await _uow.SaveChangesAsync();
+            return Ok("Se ha eliminado correctamente ");
         }
 
     }

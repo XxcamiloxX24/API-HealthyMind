@@ -1,6 +1,7 @@
 ﻿using API_healthyMind.Data;
 using API_healthyMind.Models;
 using API_healthyMind.Models.DTO;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -11,6 +12,7 @@ namespace API_healthyMind.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Policy = "AdministradorYPsicologo")]
     public class AreaController : ControllerBase
     {
         private readonly IUnidadDeTrabajo _uow;
@@ -122,7 +124,7 @@ namespace API_healthyMind.Controllers
         }
 
 
-
+        [Authorize(Policy = "SoloAdministrador")]
         [HttpPut("eliminar/{id}")]
         public async Task<IActionResult> EliminarArea(int id)
         {

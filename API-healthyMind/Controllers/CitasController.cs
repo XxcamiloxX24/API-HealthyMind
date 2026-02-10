@@ -3,6 +3,7 @@ using API_healthyMind.Models;
 using API_healthyMind.Models.DTO;
 using API_healthyMind.Models.DTO.Filtros;
 using API_healthyMind.Repositorios.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,6 +12,7 @@ namespace API_healthyMind.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Policy = "CualquierRol")]
     public class CitasController : ControllerBase
     {
         private readonly IUnidadDeTrabajo _uow;
@@ -663,6 +665,30 @@ namespace API_healthyMind.Controllers
 
         }
 
+        [HttpPut("cancelar-cita/{id}")]
+        public async Task<IActionResult> CancelarCita(int id)
+        {
+            var regEncontrado = await _uow.Citas.ObtenerTodoConCondicion(a => a.CitCodigo == id
+            && a.CitEstadoCita == "pendiente" && a.CitEstadoRegistro == "activo");
+
+            if (!regEncontrado.Any())
+            {
+                return NotFound("No se encontró esta cita");
+            }
+
+            var resultado = regEncontrado.FirstOrDefault();
+            resultado.CitEstadoCita = "cancelada";
+
+            _uow.Citas.Actualizar(resultado);
+            await _uow.SaveChangesAsync();
+
+            return Ok(new
+            {
+                mensaje = "Se han editado correctamente los datos!",
+                resultado
+            });
+        }
+
         [HttpPut("editar-solicitudes/{id}")]
         public async Task<IActionResult> EditarInformacion(int id, [FromBody] CitaDTO dto)
         {
@@ -728,8 +754,8 @@ namespace API_healthyMind.Controllers
             });
         }
 
-
-        [HttpPut("eliminar/{id}")]
+        [Authorize(Policy = "AdministradorYPsicologo")]
+        [HttpPut("cambiar-estado-registro/{id}")]
         public async Task<IActionResult> EliminarRegistro(int id)
         {
             var regEncontrado = (await _uow.Citas.ObtenerTodoConCondicion(a => a.CitCodigo == id && a.CitEstadoRegistro == "activo")).FirstOrDefault();
@@ -742,9 +768,8 @@ namespace API_healthyMind.Controllers
             _uow.Citas.Actualizar(regEncontrado);
             await _uow.SaveChangesAsync();
             return Ok("Se ha eliminado correctamente ");
-
-
         }
+
 
     }
 }
