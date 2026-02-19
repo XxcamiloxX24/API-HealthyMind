@@ -1,4 +1,5 @@
-﻿using API_healthyMind.Data;
+using API_healthyMind.Data;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +9,7 @@ namespace API_healthyMind.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Policy = "AdministradorYPsicologo")]
     public class CiudadController : ControllerBase
     {
         private readonly IUnidadDeTrabajo _uow;

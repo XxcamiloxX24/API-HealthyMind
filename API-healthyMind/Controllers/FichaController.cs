@@ -1,7 +1,8 @@
-﻿using API_healthyMind.Data;
+using API_healthyMind.Data;
 using API_healthyMind.Models;
 using API_healthyMind.Models.DTO;
 using API_healthyMind.Models.DTO.Filtros;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -13,6 +14,7 @@ namespace API_healthyMind.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Policy = "CualquierRol")]
     public class FichaController : ControllerBase
     {
         private readonly IUnidadDeTrabajo _uow;
@@ -228,6 +230,7 @@ namespace API_healthyMind.Controllers
             return Ok(resultado);
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPost]
         public async Task<IActionResult> CrearArea([FromBody] FichaDTO nuevaFicha)
         {
@@ -271,6 +274,7 @@ namespace API_healthyMind.Controllers
             });
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPut("editar/{id}")]
         public async Task<IActionResult> EditarFicha(int id, [FromBody] FichaDTO fichaRecibida)
         {
@@ -314,6 +318,7 @@ namespace API_healthyMind.Controllers
 
 
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPut("cambiar-estado/{id}")]
         public async Task<IActionResult> EliminarFicha(int id)
         {
@@ -335,6 +340,7 @@ namespace API_healthyMind.Controllers
         }
 
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpDelete("eliminar/{id}")]
         public async Task<IActionResult> EliminarDefinitivo(int id)
         {

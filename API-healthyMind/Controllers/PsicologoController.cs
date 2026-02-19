@@ -1,8 +1,9 @@
-﻿using API_healthyMind.Data;
+using API_healthyMind.Data;
 using API_healthyMind.Models;
 using API_healthyMind.Models.DTO;
 using API_healthyMind.Repositorios.Interfaces;
 using API_healthyMind.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +15,7 @@ namespace API_healthyMind.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Policy = "CualquierRol")]
     public class PsicologoController : ControllerBase
     {
         private readonly IUnidadDeTrabajo _uow;
@@ -186,8 +188,9 @@ namespace API_healthyMind.Controllers
             });
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPost]
-        public async Task<IActionResult> CrearArea([FromBody] PsicologoDTO nuevoPsicologo)
+        public async Task<IActionResult> CrearPsicologo([FromBody] PsicologoDTO nuevoPsicologo)
         {
 
             if (nuevoPsicologo == null)
@@ -237,8 +240,9 @@ namespace API_healthyMind.Controllers
             public string? PsiCorreoPersonal { get; set; }
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPut("editar/{id}")]
-        public async Task<IActionResult> EditarArea(int id, [FromBody] EditarPsicDTO psicRecibido)
+        public async Task<IActionResult> EditarPsicologo(int id, [FromBody] EditarPsicDTO psicRecibido)
         {
             if (id.ToString() == "")
             {
@@ -283,6 +287,7 @@ namespace API_healthyMind.Controllers
             public string PasswordNueva { get; set; }
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPut("cambiar-password")]
         public async Task<IActionResult> CambiarPassword([FromBody] CambiarPasswordPsicologoDTO dto)
         {
@@ -308,6 +313,7 @@ namespace API_healthyMind.Controllers
         }
 
 
+        [AllowAnonymous]
         [HttpPost("recuperar-password")]
         public async Task<IActionResult> RecuperarPassword([FromBody] SolicitarRecuperacionDTO dto)
         {
@@ -331,6 +337,7 @@ namespace API_healthyMind.Controllers
             return Ok("Se envió un enlace de recuperación al correo.");
         }
 
+        [AllowAnonymous]
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetearPasswordDTO dto)
         {
@@ -358,6 +365,7 @@ namespace API_healthyMind.Controllers
             return Ok("Contraseña actualizada correctamente.");
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPut("cambiar-estado/{id}")]
         public async Task<IActionResult> CambiarEstadöPsicologo(int id)
         {
@@ -385,6 +393,7 @@ namespace API_healthyMind.Controllers
             return Ok($"Estado actualizado a: {user.PsiEstadoRegistro}");
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpDelete("eliminar/{id}")]
         public async Task<IActionResult> EliminarPsicologo(int id)
         {

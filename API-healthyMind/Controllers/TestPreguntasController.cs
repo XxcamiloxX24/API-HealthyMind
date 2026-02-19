@@ -1,7 +1,8 @@
-﻿using API_healthyMind.Data;
+using API_healthyMind.Data;
 using API_healthyMind.Models;
 using API_healthyMind.Models.DTO;
 using API_healthyMind.Models.DTO.Filtros;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -12,6 +13,7 @@ namespace API_healthyMind.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Policy = "CualquierRol")]
     public class TestPreguntasController : ControllerBase
     {
         private readonly IUnidadDeTrabajo _uow;
@@ -239,6 +241,7 @@ namespace API_healthyMind.Controllers
             return Ok(resultados);
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPost]
         public async Task<IActionResult> CrearRegistro([FromBody] TestPreguntasDTO nuevoReg)
         {
@@ -293,6 +296,7 @@ namespace API_healthyMind.Controllers
             });
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPut("editar/{id}")]
         public async Task<IActionResult> EditarRegistro(int id, [FromBody] TestPreguntasDTO regRecibido)
         {
@@ -351,6 +355,7 @@ namespace API_healthyMind.Controllers
 
 
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPut("eliminar/{id}")]
         public async Task<IActionResult> EliminarRegistro(int idTesGeneral, int idPreg, int idResp)
         {
