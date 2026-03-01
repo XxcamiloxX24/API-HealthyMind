@@ -1,4 +1,4 @@
-﻿namespace API_healthyMind.Models.DTO
+namespace API_healthyMind.Models.DTO
 {
     public class SeguimientoAprendizDTO
     {
@@ -32,5 +32,6 @@
         public string? SegRecomendaciones { get; set; }
         public string? SegFirmaProfesional { get; set; }
         public string? SegFirmaAprendiz { get; set; }
+        public string? SegEstadoSeguimiento { get; set; }
     }
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
@@ -55,4 +55,7 @@ public partial class Psicologo
 
     [JsonIgnore]
     public virtual ICollection<TestGeneral> TestGenerals { get; set; } = new List<TestGeneral>();
+
+    [JsonIgnore]
+    public virtual ICollection<VerificationCode> VerificationCode { get; set; } = new List<VerificationCode>();
 }

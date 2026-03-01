@@ -148,6 +148,7 @@ namespace API_healthyMind.Controllers
                 Motivo = c.SegMotivo,
                 Descripcion = c.SegDescripcion,
                 Recomendaciones = c.SegRecomendaciones,
+                EstadoSeguimiento = c.SegEstadoSeguimiento,
                 FirmaProfesional = c.SegFirmaProfesional,
                 FirmaAprendiz = c.SegFirmaAprendiz
             });
@@ -198,6 +199,7 @@ namespace API_healthyMind.Controllers
                 Motivo = c.SegMotivo,
                 Descripcion = c.SegDescripcion,
                 Recomendaciones = c.SegRecomendaciones,
+                EstadoSeguimiento = c.SegEstadoSeguimiento,
                 FirmaProfesional = c.SegFirmaProfesional,
                 FirmaAprendiz = c.SegFirmaAprendiz
             });
@@ -317,6 +319,7 @@ namespace API_healthyMind.Controllers
                 Motivo = c.SegMotivo,
                 Descripcion = c.SegDescripcion,
                 Recomendaciones = c.SegRecomendaciones,
+                EstadoSeguimiento = c.SegEstadoSeguimiento,
                 FirmaProfesional = c.SegFirmaProfesional,
                 FirmaAprendiz = c.SegFirmaAprendiz
             }); 
@@ -347,6 +350,118 @@ namespace API_healthyMind.Controllers
                 .ToListAsync();
 
             return Ok(resultado);
+        }
+
+        [HttpGet("estadistica/tendencia-estado")]
+        public async Task<IActionResult> GetTendenciaSeguimientosPorEstado(
+            [FromQuery] int psicologoId,
+            [FromQuery] int? anio,
+            [FromQuery] int? cuatrimestre,
+            [FromQuery] DateTime? desde,
+            [FromQuery] DateTime? hasta)
+        {
+            if (psicologoId <= 0)
+                return BadRequest("psicologoId debe ser mayor a 0.");
+
+            DateTime inicioRango;
+            DateTime finRango;
+
+            if (desde.HasValue || hasta.HasValue)
+            {
+                inicioRango = (desde ?? hasta ?? DateTime.Today).Date;
+                finRango = (hasta ?? desde ?? DateTime.Today).Date;
+            }
+            else if (anio.HasValue)
+            {
+                if (cuatrimestre.HasValue && (cuatrimestre < 1 || cuatrimestre > 3))
+                    return BadRequest("cuatrimestre debe ser 1, 2 o 3.");
+
+                var mesInicio = cuatrimestre switch
+                {
+                    1 => 1,
+                    2 => 5,
+                    3 => 9,
+                    _ => 1
+                };
+
+                var mesFin = cuatrimestre switch
+                {
+                    1 => 4,
+                    2 => 8,
+                    3 => 12,
+                    _ => 12
+                };
+
+                inicioRango = new DateTime(anio.Value, mesInicio, 1);
+                finRango = new DateTime(anio.Value, mesFin, 1).AddMonths(1).AddDays(-1);
+            }
+            else
+            {
+                var inicioMesActual = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+                inicioRango = inicioMesActual.AddMonths(-3);
+                finRango = inicioMesActual.AddMonths(1).AddDays(-1);
+            }
+
+            if (inicioRango > finRango)
+                return BadRequest("El rango de fechas no es válido.");
+
+            var meses = new List<DateTime>();
+            var cursor = new DateTime(inicioRango.Year, inicioRango.Month, 1);
+            var finCursor = new DateTime(finRango.Year, finRango.Month, 1);
+
+            while (cursor <= finCursor)
+            {
+                meses.Add(cursor);
+                cursor = cursor.AddMonths(1);
+            }
+
+            var datos = await _uow.SeguimientoAprendiz.Query()
+                .Where(x => x.SegEstadoRegistro == "activo" &&
+                            x.SegPsicologoFk == psicologoId &&
+                            x.SegFechaSeguimiento != null &&
+                            x.SegEstadoSeguimiento != null &&
+                            x.SegFechaSeguimiento.Value.Date >= inicioRango &&
+                            x.SegFechaSeguimiento.Value.Date <= finRango)
+                .GroupBy(x => new
+                {
+                    Año = x.SegFechaSeguimiento.Value.Year,
+                    Mes = x.SegFechaSeguimiento.Value.Month,
+                    Estado = x.SegEstadoSeguimiento
+                })
+                .Select(g => new
+                {
+                    g.Key.Año,
+                    g.Key.Mes,
+                    g.Key.Estado,
+                    Total = g.Count()
+                })
+                .ToListAsync();
+
+            string[] nombresMes = { "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic" };
+            var etiquetas = meses.Select(m => nombresMes[m.Month - 1]).ToList();
+
+            int[] SeriePorEstado(string estado)
+            {
+                return meses.Select(m =>
+                        datos.Where(d => d.Año == m.Year && d.Mes == m.Month && d.Estado == estado)
+                             .Select(d => d.Total)
+                             .FirstOrDefault())
+                    .ToArray();
+            }
+
+            return Ok(new
+            {
+                psicologoId,
+                filtros = new { anio, cuatrimestre, desde, hasta },
+                rango = new { desde = inicioRango, hasta = finRango },
+                meses = etiquetas,
+                series = new
+                {
+                    Criticos = SeriePorEstado("Criticos"),
+                    EnObservacion = SeriePorEstado("En Observacion"),
+                    Estables = SeriePorEstado("Estables")
+                }
+            });
         }
 
         [HttpGet("estadistica/por-mes-fin")]
@@ -445,6 +560,7 @@ namespace API_healthyMind.Controllers
                 SegMotivo = dto.SegMotivo,
                 SegDescripcion = dto.SegDescripcion,
                 SegRecomendaciones = dto.SegRecomendaciones,
+                SegEstadoSeguimiento = dto.SegEstadoSeguimiento,
                 SegFirmaProfesional = dto.SegFirmaProfesional,
                 SegFirmaAprendiz = dto.SegFirmaAprendiz
             };
@@ -481,6 +597,7 @@ namespace API_healthyMind.Controllers
             resultado.SegMotivo = dto.SegMotivo;
             resultado.SegDescripcion = dto.SegDescripcion;
             resultado.SegRecomendaciones = dto.SegRecomendaciones;
+            resultado.SegEstadoSeguimiento = dto.SegEstadoSeguimiento;
             resultado.SegFirmaProfesional = dto.SegFirmaProfesional;
             resultado.SegFirmaAprendiz = dto.SegFirmaAprendiz;
 

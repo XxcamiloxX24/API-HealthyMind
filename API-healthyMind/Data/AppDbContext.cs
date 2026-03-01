@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using API_healthyMind.Models;
 using Microsoft.EntityFrameworkCore;
@@ -189,6 +189,7 @@ public partial class AppDbContext : DbContext
             entity.ToTable("verificationcode");
 
             entity.HasIndex(e => e.AprendizId, "AprendizId");
+            entity.HasIndex(e => e.PsicologoId, "PsicologoId");
 
 
             entity.Property(e => e.id)
@@ -197,6 +198,9 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.AprendizId)
                 .HasColumnType("int(11)")
                 .HasColumnName("AprendizId");
+            entity.Property(e => e.PsicologoId)
+                .HasColumnType("int(11)")
+                .HasColumnName("PsicologoId");
             entity.Property(e => e.Codigo)
                 .HasMaxLength(6)
                 .HasColumnName("Codigo");
@@ -209,6 +213,10 @@ public partial class AppDbContext : DbContext
             entity.HasOne(d => d.Aprendiz).WithMany(p => p.VerificationCode)
                 .HasForeignKey(d => d.AprendizId)
                 .HasConstraintName("verificationcode_ibfk_1");
+
+            entity.HasOne(d => d.Psicologo).WithMany(p => p.VerificationCode)
+                .HasForeignKey(d => d.PsicologoId)
+                .HasConstraintName("verificationcode_ibfk_2");
         });
 
         modelBuilder.Entity<AprendizFicha>(entity =>
@@ -862,6 +870,9 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(500)
                 .HasComment("Descripcion u observacion al aprendiz")
                 .HasColumnName("seg_descripcion");
+            entity.Property(e => e.SegEstadoSeguimiento)
+                .HasColumnType("enum('Criticos','En Observacion','Estables')")
+                .HasColumnName("seg_estado_seguimiento");
             entity.Property(e => e.SegEstadoRegistro)
                 .HasDefaultValueSql("'activo'")
                 .HasColumnType("enum('activo','inactivo')")

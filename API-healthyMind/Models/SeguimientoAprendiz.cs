@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace API_healthyMind.Models;
@@ -47,6 +47,8 @@ public partial class SeguimientoAprendiz
     public string? SegRecomendaciones { get; set; }
     public string? SegFirmaProfesional { get; set; }
     public string? SegFirmaAprendiz { get; set; }
+
+    public string? SegEstadoSeguimiento { get; set; }
 
     public string? SegEstadoRegistro { get; set; }
 

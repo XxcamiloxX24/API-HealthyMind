@@ -287,6 +287,13 @@ namespace API_healthyMind.Controllers
             public string PasswordNueva { get; set; }
         }
 
+        public class ResetearPasswordPsicologoDTO
+        {
+            public int PsicologoId { get; set; }
+            public string Codigo { get; set; }
+            public string NuevaPassword { get; set; }
+        }
+
         [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPut("cambiar-password")]
         public async Task<IActionResult> CambiarPassword([FromQuery] int psicologoId, [FromBody] CambiarPasswordPsicologoDTO dto)
@@ -344,34 +351,57 @@ namespace API_healthyMind.Controllers
             if (usuario == null)
                 return NotFound("No existe un psicologo con ese correo.");
 
-            // Crear JWT temporal
-            var token = JwtPasswordHelper.GenerarToken(usuario.PsiDocumento, "psicologo");
+            var anteriores = await _uow.VerificationCode.ObtenerTodoConCondicion(v => v.PsicologoId == usuario.PsiCodigo);
+            foreach (var item in anteriores)
+                _uow.VerificationCode.Eliminar(item);
 
-            var link = $"{token}";
+            var code = new Random().Next(100000, 999999).ToString();
+            var v = new VerificationCode
+            {
+                PsicologoId = usuario.PsiCodigo,
+                Codigo = code,
+                Expiration = DateTime.UtcNow.AddMinutes(10)
+            };
 
-            await _emailService.SendAsync(dto.Correo, "Recuperación de contraseña", $"Copia este Token: {link}");
+            await _uow.VerificationCode.Agregar(v);
+            await _uow.SaveChangesAsync();
 
-            return Ok("Se envió un enlace de recuperación al correo.");
+            await _emailService.SendAsync(dto.Correo, "Recuperación de contraseña", $"Tu código de verificación es: {code}");
+
+            return Ok(new
+            {
+                mensaje = "Se envió un código de verificación al correo.",
+                psicologoId = usuario.PsiCodigo
+            });
         }
 
         [AllowAnonymous]
         [HttpPost("reset-password")]
-        public async Task<IActionResult> ResetPassword([FromBody] ResetearPasswordDTO dto)
+        public async Task<IActionResult> ResetPassword([FromBody] ResetearPasswordPsicologoDTO dto)
         {
-            var datosToken = JwtPasswordHelper.ValidarToken(dto.Token);
+            if (dto.PsicologoId <= 0)
+                return BadRequest("PsicologoId inválido.");
 
-            if (datosToken == null)
-                return BadRequest("Token inválido o expirado.");
-
-            // Obtener aprendiz por documento del token
             var psico = (await _uow.Psicologo.ObtenerTodoConCondicion(
-                                a => a.PsiDocumento == datosToken.Documento)).FirstOrDefault();
+                                a => a.PsiCodigo == dto.PsicologoId)).FirstOrDefault();
 
             if (psico == null)
-                return NotFound("El aprendiz no existe.");
+                return NotFound("El psicólogo no existe.");
 
             if (psico.PsiEstadoRegistro != "activo")
                 return BadRequest("El Psicologo está inactivo, no es posible cambiar la contraseña.");
+
+            var registro = await _uow.VerificationCode.ObtenerTodoConCondicion(v =>
+                v.PsicologoId == dto.PsicologoId &&
+                v.Codigo == dto.Codigo &&
+                v.Expiration > DateTime.UtcNow);
+
+            if (!registro.Any())
+                return BadRequest("Código inválido o expirado.");
+
+            var anteriores = await _uow.VerificationCode.ObtenerTodoConCondicion(v => v.PsicologoId == psico.PsiCodigo);
+            foreach (var item in anteriores)
+                _uow.VerificationCode.Eliminar(item);
 
             // Actualizar contraseña
             psico.PsiPassword = BCrypt.Net.BCrypt.HashPassword(dto.NuevaPassword);
