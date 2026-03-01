@@ -1,4 +1,4 @@
-﻿using API_healthyMind.Data;
+using API_healthyMind.Data;
 using API_healthyMind.Models;
 using API_healthyMind.Models.DTO;
 using API_healthyMind.Models.DTO.Filtros;
@@ -353,6 +353,85 @@ namespace API_healthyMind.Controllers
         }
 
 
+
+        [HttpGet("estadistica/comparacion-semanal")]
+        public async Task<IActionResult> GetComparacionSemanal(
+            [FromQuery] int psicologoCodigo,
+            [FromQuery] string? estadoCita,
+            [FromQuery] DateOnly? fechaReferencia)
+        {
+            if (psicologoCodigo <= 0)
+            {
+                return BadRequest("psicologoCodigo debe ser mayor a 0.");
+            }
+
+            var fechaBase = fechaReferencia ?? DateOnly.FromDateTime(DateTime.Today);
+            var offset = ((int)fechaBase.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
+            var inicioSemanaActual = fechaBase.AddDays(-offset);
+            var finSemanaActual = inicioSemanaActual.AddDays(6);
+            var inicioSemanaAnterior = inicioSemanaActual.AddDays(-7);
+            var finSemanaAnterior = inicioSemanaActual.AddDays(-1);
+
+            var estadoFiltro = string.IsNullOrWhiteSpace(estadoCita) ? null : estadoCita.Trim().ToLower();
+
+            var query = _uow.Citas.Query()
+                .Where(c => c.CitEstadoRegistro == "activo" &&
+                            c.CitPsiCodFk == psicologoCodigo &&
+                            c.CitFechaProgramada != null &&
+                            c.CitFechaProgramada >= inicioSemanaAnterior &&
+                            c.CitFechaProgramada <= finSemanaActual);
+
+            if (estadoFiltro != null)
+            {
+                query = query.Where(c => c.CitEstadoCita != null && c.CitEstadoCita.ToLower() == estadoFiltro);
+            }
+
+            var citas = await query
+                .Select(c => new { c.CitFechaProgramada })
+                .ToListAsync();
+
+            var conteoSemanaActual = new int[7];
+            var conteoSemanaAnterior = new int[7];
+
+            foreach (var cita in citas)
+            {
+                var fecha = cita.CitFechaProgramada!.Value;
+                var indiceDia = ((int)fecha.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
+
+                if (fecha >= inicioSemanaActual && fecha <= finSemanaActual)
+                {
+                    conteoSemanaActual[indiceDia]++;
+                }
+                else if (fecha >= inicioSemanaAnterior && fecha <= finSemanaAnterior)
+                {
+                    conteoSemanaAnterior[indiceDia]++;
+                }
+            }
+
+            var dias = new[] { "Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom" };
+
+            var semanaActual = dias.Select((d, i) => new
+            {
+                dia = d,
+                cantidad = conteoSemanaActual[i]
+            });
+
+            var semanaAnterior = dias.Select((d, i) => new
+            {
+                dia = d,
+                cantidad = conteoSemanaAnterior[i]
+            });
+
+            return Ok(new
+            {
+                psicologoCodigo,
+                estadoCita = string.IsNullOrWhiteSpace(estadoCita) ? "todas" : estadoCita.Trim(),
+                rangoSemanaActual = new { inicio = inicioSemanaActual, fin = finSemanaActual },
+                rangoSemanaAnterior = new { inicio = inicioSemanaAnterior, fin = finSemanaAnterior },
+                semanaActual = new { total = conteoSemanaActual.Sum(), dias = semanaActual },
+                semanaAnterior = new { total = conteoSemanaAnterior.Sum(), dias = semanaAnterior }
+            });
+        }
 
         [HttpGet("estadistica/por-mes")]
         public async Task<IActionResult> GetSeguimientosIniciadosPorMes()

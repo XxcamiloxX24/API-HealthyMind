@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using static API_healthyMind.Controllers.AprendizController;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
@@ -282,16 +283,32 @@ namespace API_healthyMind.Controllers
 
         public class CambiarPasswordPsicologoDTO
         {
-            public string UsuarioDocumento { get; set; }
             public string PasswordActual { get; set; }
             public string PasswordNueva { get; set; }
         }
 
         [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPut("cambiar-password")]
-        public async Task<IActionResult> CambiarPassword([FromBody] CambiarPasswordPsicologoDTO dto)
+        public async Task<IActionResult> CambiarPassword([FromQuery] int psicologoId, [FromBody] CambiarPasswordPsicologoDTO dto)
         {
-            var psicologo = await _uow.Psicologo.ObtenerTodoConCondicion(c => c.PsiDocumento == dto.UsuarioDocumento);
+            if (psicologoId <= 0)
+            {
+                return BadRequest("psicologoId debe ser mayor a 0.");
+            }
+
+            if (User.IsInRole(Roles.Psicologo))
+            {
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("nameid");
+
+                if (string.IsNullOrWhiteSpace(userId) ||
+                    !int.TryParse(userId, out var tokenId) ||
+                    tokenId != psicologoId)
+                {
+                    return Forbid();
+                }
+            }
+
+            var psicologo = await _uow.Psicologo.ObtenerTodoConCondicion(c => c.PsiCodigo == psicologoId);
             var resultado = psicologo.FirstOrDefault();
 
             if (resultado == null)

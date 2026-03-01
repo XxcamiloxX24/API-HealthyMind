@@ -1,4 +1,4 @@
-﻿using API_healthyMind.Data;
+using API_healthyMind.Data;
 using API_healthyMind.Models;
 using API_healthyMind.Repositorios.Interfaces;
 using Microsoft.IdentityModel.Tokens;
@@ -118,7 +118,7 @@ namespace API_healthyMind.Repositorios.Implementacion
                 Subject = new ClaimsIdentity(claims),
                 NotBefore = DateTime.UtcNow.AddMinutes(-1),
 
-                Expires = DateTime.UtcNow.AddDays(5),
+                Expires = DateTime.UtcNow.AddDays(2),
                 SigningCredentials = new SigningCredentials(
                     new SymmetricSecurityKey(keyBytes),
                     SecurityAlgorithms.HmacSha256Signature)

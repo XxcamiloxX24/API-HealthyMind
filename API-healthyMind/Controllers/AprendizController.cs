@@ -549,6 +549,7 @@ namespace API_healthyMind.Controllers
             return Ok("Contraseña actualizada correctamente");
         }
 
+        [AllowAnonymous]
         [HttpPost("recuperar-password")]
         public async Task<IActionResult> RecuperarPassword([FromBody] SolicitarRecuperacionDTO dto)
         {
