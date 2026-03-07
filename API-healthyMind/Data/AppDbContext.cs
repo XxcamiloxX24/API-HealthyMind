@@ -385,7 +385,7 @@ public partial class AppDbContext : DbContext
                 .HasColumnName("cit_apr_codFK");
             entity.Property(e => e.CitEstadoCita)
                 .HasComment("estado de la cita")
-                .HasColumnType("enum('programada','realizada','cancelada','reprogramada','no asistió')")
+                .HasColumnType("enum('pendiente','programada','realizada','cancelada','reprogramada','no asistió')")
                 .HasColumnName("cit_estado_cita");
             entity.Property(e => e.CitEstadoRegistro)
                 .HasDefaultValueSql("'activo'")

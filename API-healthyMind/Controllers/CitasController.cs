@@ -6,6 +6,7 @@ using API_healthyMind.Repositorios.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 using static API_healthyMind.Controllers.AprendizController;
 namespace API_healthyMind.Controllers
@@ -23,6 +24,108 @@ namespace API_healthyMind.Controllers
         {
             _uow = uow;
             _emailService = emailService;
+        }
+
+        private const string EstadoPendiente = "pendiente";
+        private const string EstadoProgramada = "programada";
+        private const string EstadoReprogramada = "reprogramada";
+        private const string EstadoCancelada = "cancelada";
+        private const string EstadoRealizada = "realizada";
+        private const string EstadoNoAsistio = "no asistió";
+
+        private static readonly string[] EstadosSolicitudActiva =
+        {
+            EstadoPendiente,
+            EstadoProgramada,
+            EstadoReprogramada
+        };
+
+        private static readonly string[] TiposCitaPermitidos =
+        {
+            "videollamada",
+            "chat",
+            "presencial"
+        };
+
+        private string? ObtenerIdUsuarioAutenticado()
+        {
+            return User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("nameid");
+        }
+
+        private bool TryObtenerAprendizIdAutenticado(out int aprendizId)
+        {
+            aprendizId = 0;
+            var userId = ObtenerIdUsuarioAutenticado();
+
+            return !string.IsNullOrWhiteSpace(userId) && int.TryParse(userId, out aprendizId);
+        }
+
+        private async Task<AprendizFicha?> ObtenerAprendizFichaActivaAsync(int aprendizId)
+        {
+            return await _uow.AprendizFicha.Query()
+                .Include(c => c.Aprendiz)
+                    .ThenInclude(c => c.EstadoAprendiz)
+                .Include(c => c.Aprendiz)
+                    .ThenInclude(c => c.Municipio)
+                        .ThenInclude(c => c.Regional)
+                .Include(x => x.Ficha)
+                    .ThenInclude(f => f.programaFormacion)
+                        .ThenInclude(p => p.Area)
+                            .ThenInclude(a => a.AreaPsicologo)
+                .Include(x => x.Ficha)
+                    .ThenInclude(f => f.programaFormacion)
+                        .ThenInclude(p => p.Centro)
+                .Where(x => x.Aprendiz != null &&
+                            x.Aprendiz.AprCodigo == aprendizId &&
+                            x.Aprendiz.AprEstadoRegistro == "activo" &&
+                            x.AprFicEstadoRegistro == "activo")
+                .FirstOrDefaultAsync();
+        }
+
+        private static bool EsTipoCitaValido(string? tipoCita)
+        {
+            return !string.IsNullOrWhiteSpace(tipoCita) &&
+                   TiposCitaPermitidos.Contains(tipoCita.Trim().ToLower());
+        }
+
+        private static bool EsHorarioValido(TimeOnly? horaInicio, TimeOnly? horaFin)
+        {
+            if (!horaInicio.HasValue || !horaFin.HasValue)
+            {
+                return false;
+            }
+
+            return horaInicio.Value < horaFin.Value;
+        }
+
+        private static string? ValidarDatosAgenda(CitaDTO dto)
+        {
+            if (!EsTipoCitaValido(dto.CitTipoCita))
+            {
+                return "El tipo de cita no es válido.";
+            }
+
+            if (string.IsNullOrWhiteSpace(dto.CitEstadoCita))
+            {
+                return "El estado de la cita es obligatorio.";
+            }
+
+            var estado = dto.CitEstadoCita.Trim().ToLower();
+
+            if (estado != EstadoPendiente)
+            {
+                if (!dto.CitFechaProgramada.HasValue)
+                {
+                    return "La fecha programada es obligatoria para ese estado.";
+                }
+
+                if (!EsHorarioValido(dto.CitHoraInicio, dto.CitHoraFin))
+                {
+                    return "La hora de inicio debe ser menor que la hora de fin.";
+                }
+            }
+
+            return null;
         }
 
         private static object MapearAprendiz(Aprendiz d)
@@ -122,6 +225,7 @@ namespace API_healthyMind.Controllers
 
 
         // GET: NivelFormacionController
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet]
         public async Task<IActionResult> ObtenerTodos()
         {
@@ -155,6 +259,7 @@ namespace API_healthyMind.Controllers
             return Ok(resultados);
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("listar-todas")]
         public async Task<IActionResult> ListarSeguimientos([FromQuery] PaginacionDTO p)
         {
@@ -211,6 +316,7 @@ namespace API_healthyMind.Controllers
         }
 
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("listar-activas")]
         public async Task<IActionResult> ListarCitasActivas([FromQuery] PaginacionDTO p)
         {
@@ -268,6 +374,7 @@ namespace API_healthyMind.Controllers
         }
 
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("buscar")]
         public async Task<IActionResult> Buscar([FromQuery] FiltroCitasDTO f)
         {
@@ -354,6 +461,7 @@ namespace API_healthyMind.Controllers
 
 
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("estadistica/comparacion-semanal")]
         public async Task<IActionResult> GetComparacionSemanal(
             [FromQuery] int psicologoCodigo,
@@ -433,12 +541,13 @@ namespace API_healthyMind.Controllers
             });
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("estadistica/por-mes")]
         public async Task<IActionResult> GetSeguimientosIniciadosPorMes()
         {
             var resultado = await _uow.Citas.Query()
                 .Where(x => x.CitEstadoRegistro == "activo" &&
-                    x.CitEstadoCita != "pendiente" &&
+                    x.CitEstadoCita != EstadoPendiente &&
                     x.CitFechaProgramada != null)
                 .GroupBy(x => new
                 {
@@ -458,11 +567,12 @@ namespace API_healthyMind.Controllers
             return Ok(resultado);
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("estadistica/actividad-exitosa")]
         public async Task<IActionResult> GetActividadExitosa()
         {
-            var total = await _uow.Citas.Query().CountAsync();
-            var exitosas = await _uow.Citas.Query().CountAsync(c => c.CitEstadoCita == "Realizada");
+            var total = await _uow.Citas.Query().CountAsync(c => c.CitEstadoRegistro == "activo");
+            var exitosas = await _uow.Citas.Query().CountAsync(c => c.CitEstadoRegistro == "activo" && c.CitEstadoCita == EstadoRealizada);
 
             double porcentaje = total == 0 ? 0 : (double)exitosas / total * 100;
 
@@ -474,14 +584,15 @@ namespace API_healthyMind.Controllers
             });
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("citas/estado-proceso")]
         public async Task<IActionResult> GetCitasEnProceso()
         {
             // Estados considerados "en proceso"
-            var estadosProceso = new[] { "pendiente", "programada", "reprogramada" };
+            var estadosProceso = new[] { EstadoPendiente, EstadoProgramada, EstadoReprogramada };
 
             // Total de citas
-            var totalCitas = await _uow.Citas.Query().CountAsync();
+            var totalCitas = await _uow.Citas.Query().CountAsync(c => c.CitEstadoRegistro == "activo");
 
             // Si no hay citas, evitar división entre cero
             if (totalCitas == 0)
@@ -497,7 +608,7 @@ namespace API_healthyMind.Controllers
 
             // Citas en proceso
             var detalle = await _uow.Citas.Query()
-                .Where(c => estadosProceso.Contains(c.CitEstadoCita))
+                .Where(c => c.CitEstadoRegistro == "activo" && estadosProceso.Contains(c.CitEstadoCita))
                 .GroupBy(c => c.CitEstadoCita)
                 .Select(g => new
                 {
@@ -521,14 +632,15 @@ namespace API_healthyMind.Controllers
         }
 
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("citas/estado-incidencias")]
         public async Task<IActionResult> GetCitasincidencias()
         {
             // Estados considerados "en proceso"
-            var estadosProceso = new[] { "cancelada", "no asistió" };
+            var estadosProceso = new[] { EstadoCancelada, EstadoNoAsistio };
 
             // Total de citas
-            var totalCitas = await _uow.Citas.Query().CountAsync();
+            var totalCitas = await _uow.Citas.Query().CountAsync(c => c.CitEstadoRegistro == "activo");
 
             // Si no hay citas, evitar división entre cero
             if (totalCitas == 0)
@@ -544,7 +656,7 @@ namespace API_healthyMind.Controllers
 
             // Citas en proceso
             var detalle = await _uow.Citas.Query()
-                .Where(c => estadosProceso.Contains(c.CitEstadoCita))
+                .Where(c => c.CitEstadoRegistro == "activo" && estadosProceso.Contains(c.CitEstadoCita))
                 .GroupBy(c => c.CitEstadoCita)
                 .Select(g => new
                 {
@@ -568,6 +680,7 @@ namespace API_healthyMind.Controllers
         }
 
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("estadistica/por-estado")]
         public async Task<IActionResult> GetCantidadCitasPorEstado()
         {
@@ -584,12 +697,13 @@ namespace API_healthyMind.Controllers
             return Ok(resultado);
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("estadistica/por-dia")]
         public async Task<IActionResult> GetSeguimientosFinalizadosPorMes()
         {
             var resultado = await _uow.Citas.Query()
                 .Where(x => x.CitEstadoRegistro == "activo" &&
-                    x.CitEstadoCita != "pendiente" &&
+                    x.CitEstadoCita != EstadoPendiente &&
                     x.CitFechaProgramada != null)
                 .GroupBy(x => new
                 {
@@ -613,6 +727,7 @@ namespace API_healthyMind.Controllers
 
 
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPost]
         public async Task<IActionResult> CrearRegistro(CitaDTO dto)
         {
@@ -621,16 +736,27 @@ namespace API_healthyMind.Controllers
                 return BadRequest("El cuerpo no debe estar vacio!");
             }
 
+            var errorValidacion = ValidarDatosAgenda(dto);
+            if (errorValidacion != null)
+            {
+                return BadRequest(errorValidacion);
+            }
+
+            if (!dto.CitAprCodFk.HasValue || !dto.CitPsiCodFk.HasValue)
+            {
+                return BadRequest("El aprendiz y el psicólogo son obligatorios.");
+            }
+
             var nuevoReg = new Cita
             {
-                CitTipoCita = dto.CitTipoCita,
+                CitTipoCita = dto.CitTipoCita!.Trim().ToLower(),
                 CitFechaProgramada = dto.CitFechaProgramada,
                 CitHoraInicio = dto.CitHoraInicio,
                 CitHoraFin = dto.CitHoraFin,
                 CitMotivo = dto.CitMotivo,
                 CitAnotaciones = dto.CitAnotaciones,
-                CitFechaCreacion = DateTime.Now,
-                CitEstadoCita = dto.CitEstadoCita,
+                CitFechaCreacion = DateTime.UtcNow,
+                CitEstadoCita = dto.CitEstadoCita!.Trim().ToLower(),
                 CitAprCodFk = dto.CitAprCodFk,
                 CitPsiCodFk = dto.CitPsiCodFk
             };
@@ -662,6 +788,7 @@ namespace API_healthyMind.Controllers
             });
         }
 
+        [Authorize(Policy = "SoloAdministrador")]
         [HttpGet("test-email")]
         public async Task<IActionResult> TestEmail()
         {
@@ -676,7 +803,44 @@ namespace API_healthyMind.Controllers
             }
         }
 
+        [Authorize(Roles = Roles.Aprendiz)]
+        [HttpGet("mis-citas")]
+        public async Task<IActionResult> ObtenerMisCitas()
+        {
+            if (!TryObtenerAprendizIdAutenticado(out var aprendizId))
+            {
+                return Forbid();
+            }
 
+            var datos = await _uow.Citas.Query()
+                .Include(c => c.CitAprCodFkNavigation)
+                    .ThenInclude(c => c.Aprendiz)
+                        .ThenInclude(c => c.Municipio)
+                            .ThenInclude(c => c.Regional)
+                .Include(c => c.CitAprCodFkNavigation.Aprendiz.EstadoAprendiz)
+                .Include(c => c.CitAprCodFkNavigation.Ficha)
+                    .ThenInclude(c => c.programaFormacion)
+                        .ThenInclude(c => c.Centro)
+                .Include(c => c.CitAprCodFkNavigation.Ficha)
+                    .ThenInclude(c => c.programaFormacion)
+                        .ThenInclude(c => c.NivelFormacion)
+                .Include(c => c.CitAprCodFkNavigation.Ficha)
+                    .ThenInclude(c => c.programaFormacion)
+                        .ThenInclude(c => c.Area)
+                .Include(c => c.CitPsiCodFkNavigation)
+                .Where(c => c.CitEstadoRegistro == "activo" &&
+                            c.CitAprCodFkNavigation != null &&
+                            c.CitAprCodFkNavigation.Aprendiz != null &&
+                            c.CitAprCodFkNavigation.Aprendiz.AprCodigo == aprendizId)
+                .OrderByDescending(c => c.CitFechaCreacion)
+                .ToListAsync();
+
+            var resultados = datos.Select(MapearCita);
+            return Ok(resultados);
+        }
+
+
+        [Authorize(Roles = Roles.Aprendiz)]
         [HttpPost("solicitar-cita")]
         public async Task<IActionResult> solicitarCita([FromBody] SolicitudCitaDTO dto)
         {
@@ -685,28 +849,35 @@ namespace API_healthyMind.Controllers
                 return BadRequest("El cuerpo de la solicitud no debe estar vacio!");
             }
 
-            var datosAprendiz = await _uow.AprendizFicha.Query()
-                                            .Include(c => c.Aprendiz)
-                                                .ThenInclude(c => c.EstadoAprendiz)
-                                            .Include(c => c.Aprendiz)
-                                                .ThenInclude(c => c.Municipio)
-                                                    .ThenInclude(c => c.Regional)
-                                            .Include(x => x.Ficha)
-                                                .ThenInclude(f => f.programaFormacion)
-                                                    .ThenInclude(p => p.Area)
-                                                        .ThenInclude(a => a.AreaPsicologo)
-                                            .Where(x => x.Aprendiz.AprNroDocumento == dto.NroDocumento)
-                                            .FirstOrDefaultAsync();
+            if (!TryObtenerAprendizIdAutenticado(out var aprendizId))
+            {
+                return Forbid();
+            }
+
+            if (!EsTipoCitaValido(dto.TipoCita))
+            {
+                return BadRequest("El tipo de cita no es válido.");
+            }
+
+            if (string.IsNullOrWhiteSpace(dto.MotivoSolicitud))
+            {
+                return BadRequest("El motivo de la solicitud es obligatorio.");
+            }
+
+            var datosAprendiz = await ObtenerAprendizFichaActivaAsync(aprendizId);
             var psicologoAsignado = datosAprendiz?.Ficha
                         .programaFormacion
                         .Area
                         .AreaPsicologo;
             
             if (datosAprendiz == null)
-                return NotFound("No existe ningún registro de AprendizFicha para el aprendiz con ese documento.");
+                return NotFound("El aprendiz no tiene una ficha activa asociada.");
 
             if (datosAprendiz.Aprendiz == null)
                 return BadRequest("El aprendiz existe en AprendizFicha pero no tiene datos en la tabla Aprendiz.");
+
+            if (datosAprendiz.Aprendiz.AprEstadoRegistro != "activo")
+                return BadRequest("El aprendiz debe estar activo para solicitar una cita.");
 
             if (datosAprendiz.Ficha == null)
                 return BadRequest("El aprendiz no tiene ficha asociada.");
@@ -720,30 +891,102 @@ namespace API_healthyMind.Controllers
             if (datosAprendiz.Ficha.programaFormacion.Area.AreaPsicologo == null)
                 return BadRequest("El área del programa no tiene un psicólogo asignado.");
 
+            var solicitudActiva = await _uow.Citas.Query()
+                .Where(c => c.CitEstadoRegistro == "activo" &&
+                            c.CitAprCodFk == datosAprendiz.AprFicCodigo &&
+                            c.CitEstadoCita != null &&
+                            EstadosSolicitudActiva.Contains(c.CitEstadoCita))
+                .AnyAsync();
+
+            if (solicitudActiva)
+            {
+                return BadRequest("Ya tienes una solicitud o cita activa pendiente de gestión.");
+            }
+
             
             var soli = new Cita
             {
-                CitTipoCita = dto.TipoCita,
-                CitFechaCreacion = DateTime.Now,
-                CitMotivoSolicitud = dto.MotivoSolicitud,
-                CitEstadoCita = "pendiente",
-                CitAprCodFk = datosAprendiz.Aprendiz.AprCodigo,
+                CitTipoCita = dto.TipoCita.Trim().ToLower(),
+                CitFechaCreacion = DateTime.UtcNow,
+                CitMotivoSolicitud = dto.MotivoSolicitud.Trim(),
+                CitEstadoCita = EstadoPendiente,
+                CitAprCodFk = datosAprendiz.AprFicCodigo,
                 CitPsiCodFk = psicologoAsignado.PsiCodigo
             };
             await _uow.Citas.Agregar(soli);
             await _uow.SaveChangesAsync();
-            await _emailService.SendAsync(soli.CitPsiCodFkNavigation.PsiCorreoInstitucional,
-                "¡Nueva solicitud de cita! - Healthy Mind",
-                $"El aprendiz {soli.CitAprCodFkNavigation.Aprendiz.AprNombre} {soli.CitAprCodFkNavigation.Aprendiz.AprApellido} de la ficha Nro {soli.CitAprCodFkNavigation.Ficha.FicCodigo} ha solicitado una cita!");
+
+            var mensaje = "Se ha solicitado una cita correctamente";
+
+            try
+            {
+                await _emailService.SendAsync(psicologoAsignado.PsiCorreoInstitucional,
+                    "Nueva solicitud de cita - Healthy Mind",
+                    $"El aprendiz {datosAprendiz.Aprendiz.AprNombre} {datosAprendiz.Aprendiz.AprApellido} de la ficha Nro {datosAprendiz.Ficha.FicCodigo} ha solicitado una cita.");
+            }
+            catch
+            {
+                mensaje = "La solicitud se creó correctamente, pero no se pudo enviar la notificación al psicólogo.";
+            }
+
             return Ok(new
             {
-                Mensaje = "Se ha solicitado una cita correctamente",
-                datosAprendiz
+                mensaje,
+                citaId = soli.CitCodigo,
+                estado = soli.CitEstadoCita,
+                psicologoId = psicologoAsignado.PsiCodigo
             });
 
 
         }
 
+        [Authorize(Roles = Roles.Aprendiz)]
+        [HttpPut("cancelar-mi-solicitud/{id}")]
+        public async Task<IActionResult> CancelarMiSolicitud(int id)
+        {
+            if (!TryObtenerAprendizIdAutenticado(out var aprendizId))
+            {
+                return Forbid();
+            }
+
+            var aprFicCodigo = await _uow.AprendizFicha.Query()
+                .Where(a => a.Aprendiz != null &&
+                            a.Aprendiz.AprCodigo == aprendizId &&
+                            a.AprFicEstadoRegistro == "activo")
+                .Select(a => (int?)a.AprFicCodigo)
+                .FirstOrDefaultAsync();
+
+            if (!aprFicCodigo.HasValue)
+            {
+                return NotFound("El aprendiz no tiene una ficha activa asociada.");
+            }
+
+            var resultado = await _uow.Citas.Query()
+                .Where(a => a.CitCodigo == id &&
+                            a.CitEstadoRegistro == "activo" &&
+                            a.CitEstadoCita == EstadoPendiente &&
+                            a.CitAprCodFk == aprFicCodigo.Value)
+                .FirstOrDefaultAsync();
+
+            if (resultado == null)
+            {
+                return NotFound("No se encontró una solicitud pendiente con ese id.");
+            }
+
+            resultado.CitEstadoCita = EstadoCancelada;
+
+            _uow.Citas.Actualizar(resultado);
+            await _uow.SaveChangesAsync();
+
+            return Ok(new
+            {
+                mensaje = "La solicitud fue cancelada correctamente.",
+                citaId = resultado.CitCodigo,
+                estado = resultado.CitEstadoCita
+            });
+        }
+
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPut("cancelar-cita/{id}")]
         public async Task<IActionResult> CancelarCita(int id)
         {
@@ -756,7 +999,7 @@ namespace API_healthyMind.Controllers
             }
 
             var resultado = regEncontrado.FirstOrDefault();
-            resultado.CitEstadoCita = "cancelada";
+            resultado.CitEstadoCita = EstadoCancelada;
 
             _uow.Citas.Actualizar(resultado);
             await _uow.SaveChangesAsync();
@@ -768,26 +1011,38 @@ namespace API_healthyMind.Controllers
             });
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPut("editar-solicitudes/{id}")]
         public async Task<IActionResult> EditarInformacion(int id, [FromBody] CitaDTO dto)
         {
+            if (dto == null)
+            {
+                return BadRequest("El cuerpo no debe estar vacio!");
+            }
+
             var regEncontrado = await _uow.Citas.ObtenerTodoConCondicion(a => a.CitCodigo == id 
-            && a.CitEstadoCita == "pendiente" && a.CitEstadoRegistro == "activo");
+            && a.CitEstadoCita == EstadoPendiente && a.CitEstadoRegistro == "activo");
 
             if (!regEncontrado.Any())
             {
-                return NotFound("No se encontró este aprendiz");
+                return NotFound("No se encontró una solicitud pendiente con ese id.");
             }
 
             var resultado = regEncontrado.FirstOrDefault();
 
-            resultado.CitTipoCita = dto.CitTipoCita;
+            var errorValidacion = ValidarDatosAgenda(dto);
+            if (errorValidacion != null)
+            {
+                return BadRequest(errorValidacion);
+            }
+
+            resultado.CitTipoCita = dto.CitTipoCita!.Trim().ToLower();
             resultado.CitFechaProgramada = dto.CitFechaProgramada;
             resultado.CitHoraInicio = dto.CitHoraInicio;
             resultado.CitHoraFin = dto.CitHoraFin;
             resultado.CitMotivo = dto.CitMotivo;
             resultado.CitAnotaciones = dto.CitAnotaciones;
-            resultado.CitEstadoCita = dto.CitEstadoCita;
+            resultado.CitEstadoCita = dto.CitEstadoCita!.Trim().ToLower();
 
 
 
@@ -801,25 +1056,37 @@ namespace API_healthyMind.Controllers
             });
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPut("editar/{id}")]
         public async Task<IActionResult> Editar(int id, [FromBody] CitaDTO dto)
         {
+            if (dto == null)
+            {
+                return BadRequest("El cuerpo no debe estar vacio!");
+            }
+
             var regEncontrado = await _uow.Citas.ObtenerTodoConCondicion(a => a.CitCodigo == id && a.CitEstadoRegistro == "activo");
 
             if (!regEncontrado.Any())
             {
-                return NotFound("No se encontró este aprendiz");
+                return NotFound("No se encontró esta cita.");
             }
 
             var resultado = regEncontrado.FirstOrDefault();
 
-            resultado.CitTipoCita = dto.CitTipoCita;
+            var errorValidacion = ValidarDatosAgenda(dto);
+            if (errorValidacion != null)
+            {
+                return BadRequest(errorValidacion);
+            }
+
+            resultado.CitTipoCita = dto.CitTipoCita!.Trim().ToLower();
             resultado.CitFechaProgramada = dto.CitFechaProgramada;
             resultado.CitHoraInicio = dto.CitHoraInicio;
             resultado.CitHoraFin = dto.CitHoraFin;
             resultado.CitMotivo = dto.CitMotivo;
             resultado.CitAnotaciones = dto.CitAnotaciones;
-            resultado.CitEstadoCita = dto.CitEstadoCita;
+            resultado.CitEstadoCita = dto.CitEstadoCita!.Trim().ToLower();
 
 
 
