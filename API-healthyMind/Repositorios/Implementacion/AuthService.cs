@@ -1,6 +1,8 @@
 using API_healthyMind.Data;
 using API_healthyMind.Models;
+using API_healthyMind.Models.DTO;
 using API_healthyMind.Repositorios.Interfaces;
+using API_healthyMind.Services;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq.Expressions;
@@ -12,28 +14,59 @@ namespace API_healthyMind.Repositorios.Implementacion
     public class AuthService : IAuthService
     {
         private readonly IUnidadDeTrabajo _uow;
+        private readonly IRefreshTokenService _refreshTokenService;
         private readonly string _secretKey;
+        private readonly string? _adminEmail;
+        private readonly string? _adminPassword;
+        private readonly string? _adminPasswordHash;
+        private readonly int _accessTokenMinutes;
 
-        public AuthService(IUnidadDeTrabajo uow, IConfiguration configuration)
+        public AuthService(
+            IUnidadDeTrabajo uow,
+            IRefreshTokenService refreshTokenService,
+            IConfiguration configuration)
         {
             _uow = uow;
-            _secretKey = configuration["settings:secretkey"];
+            _refreshTokenService = refreshTokenService;
+            var settings = configuration.GetSection("settings");
+            _secretKey = settings["secretkey"] ?? configuration["JWT_SecretKey"] ?? string.Empty;
+            _adminEmail = (settings["adminEmail"] ?? configuration["ADMIN_EMAIL"])?.Trim();
+            _adminPassword = (settings["adminPassword"] ?? configuration["ADMIN_PASSWORD"])?.Trim();
+            _adminPasswordHash = (settings["adminPasswordHash"] ?? configuration["ADMIN_PASSWORD_HASH"])?.Trim();
+            _accessTokenMinutes = configuration.GetValue("Jwt:AccessTokenMinutes", 30);
+            if (_accessTokenMinutes < 1) _accessTokenMinutes = 30;
         }
 
-        public string? LoginAdmin(string correo, string password)
+        public async Task<AuthTokenResult?> LoginAdmin(string correo, string password)
         {
-            if (correo == "healthymindsoporte2@gmail.com" &&
-                password == "AdminHealthy123")
+            if (string.IsNullOrWhiteSpace(correo) || string.IsNullOrWhiteSpace(password))
+                return null;
+
+            correo = correo.Trim();
+            password = password.Trim();
+
+            if (string.IsNullOrWhiteSpace(_adminEmail))
+                return null;
+
+            if (!string.Equals(correo, _adminEmail, StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            if (!string.IsNullOrWhiteSpace(_adminPasswordHash))
             {
-                return GenerarToken(correo, Roles.Administrador);
+                if (BCrypt.Net.BCrypt.Verify(password, _adminPasswordHash))
+                    return await IssueTokensAsync(correo, Roles.Administrador);
+                return null;
             }
+
+            if (!string.IsNullOrWhiteSpace(_adminPassword) && password == _adminPassword)
+                return await IssueTokensAsync(correo, Roles.Administrador);
 
             return null;
         }
 
-        public async Task<string?> LoginPsicologo(string correo, string password)
+        public Task<AuthTokenResult?> LoginPsicologo(string correo, string password)
         {
-            return await LoginGenerico(
+            return LoginGenerico(
                 correo,
                 password,
                 _uow.Psicologo,
@@ -43,12 +76,11 @@ namespace API_healthyMind.Repositorios.Implementacion
                 Roles.Psicologo,
                 p => p.PsiCodigo.ToString()
             );
-
         }
 
-        public async Task<string?> LoginAprendiz(string correo, string password)
+        public Task<AuthTokenResult?> LoginAprendiz(string correo, string password)
         {
-            return await LoginGenerico(
+            return LoginGenerico(
                 correo,
                 password,
                 _uow.Aprendiz,
@@ -60,7 +92,36 @@ namespace API_healthyMind.Repositorios.Implementacion
             );
         }
 
-        private async Task<string?> LoginGenerico<T>(
+        public async Task<AuthTokenResult?> RefrescarAsync(string refreshToken)
+        {
+            var rotated = await _refreshTokenService.ValidateAndRotateAsync(refreshToken);
+            if (rotated == null)
+                return null;
+
+            var access = GenerarToken(rotated.UserId, rotated.Role);
+            return new AuthTokenResult
+            {
+                AccessToken = access,
+                RefreshToken = rotated.NewRefreshTokenPlain,
+                ExpiresIn = _accessTokenMinutes * 60,
+                TokenType = "Bearer"
+            };
+        }
+
+        private async Task<AuthTokenResult> IssueTokensAsync(string userId, string role)
+        {
+            var access = GenerarToken(userId, role);
+            var refresh = await _refreshTokenService.CreateAsync(userId, role);
+            return new AuthTokenResult
+            {
+                AccessToken = access,
+                RefreshToken = refresh,
+                ExpiresIn = _accessTokenMinutes * 60,
+                TokenType = "Bearer"
+            };
+        }
+
+        private async Task<AuthTokenResult?> LoginGenerico<T>(
             string correo,
             string password,
             InterfazGenerica<T> repositorio,
@@ -71,25 +132,19 @@ namespace API_healthyMind.Repositorios.Implementacion
             Func<T, string> idSelector
         ) where T : class
         {
-            // 1. Obtenemos el parámetro base de la primera expresión (ej: 'p' o 'a')
             var parameter = correoSelector.Parameters[0];
 
-            // 2. Visitamos la expresión 'estadoActivo' y reemplazamos su parámetro 
-            //    por el parámetro 'parameter' de arriba.
             var visitor = new ParameterReplaceVisitor(estadoActivo.Parameters[0], parameter);
             var estadoActivoBodyNormalizado = visitor.Visit(estadoActivo.Body);
 
-            // 3. Combinamos las expresiones usando el parámetro unificado
-            //    Condición: (Correo == correo) AND (Estado == activo)
             var lambdaFinal = Expression.Lambda<Func<T, bool>>(
                 Expression.AndAlso(
                     Expression.Equal(correoSelector.Body, Expression.Constant(correo)),
-                    estadoActivoBodyNormalizado // Usamos el cuerpo corregido
+                    estadoActivoBodyNormalizado
                 ),
-                parameter // Pasamos el parámetro único
+                parameter
             );
 
-            // 4. Ejecutamos la consulta con el lambda bien formado
             var usuario = await repositorio.ObtenerPrimero(lambdaFinal);
 
             if (usuario == null)
@@ -100,7 +155,7 @@ namespace API_healthyMind.Repositorios.Implementacion
             if (!BCrypt.Net.BCrypt.Verify(password, passwordHash))
                 return null;
 
-            return GenerarToken(idSelector(usuario), rol);
+            return await IssueTokensAsync(idSelector(usuario), rol);
         }
 
         private string GenerarToken(string id, string rol)
@@ -117,8 +172,7 @@ namespace API_healthyMind.Repositorios.Implementacion
             {
                 Subject = new ClaimsIdentity(claims),
                 NotBefore = DateTime.UtcNow.AddMinutes(-1),
-
-                Expires = DateTime.UtcNow.AddDays(2),
+                Expires = DateTime.UtcNow.AddMinutes(_accessTokenMinutes),
                 SigningCredentials = new SigningCredentials(
                     new SymmetricSecurityKey(keyBytes),
                     SecurityAlgorithms.HmacSha256Signature)
@@ -142,7 +196,6 @@ namespace API_healthyMind.Repositorios.Implementacion
 
             protected override Expression VisitParameter(ParameterExpression node)
             {
-                // Si encontramos el parámetro viejo, lo cambiamos por el nuevo
                 return node == _from ? _to : base.VisitParameter(node);
             }
         }

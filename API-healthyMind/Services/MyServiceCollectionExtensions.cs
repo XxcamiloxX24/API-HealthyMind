@@ -1,4 +1,4 @@
-﻿using API_healthyMind.Data;
+using API_healthyMind.Data;
 using API_healthyMind.Models;
 using API_healthyMind.Repositorios.Implementacion;
 using API_healthyMind.Repositorios.Interfaces;
@@ -33,6 +33,7 @@ namespace API_healthyMind.Services
             services.AddScoped<ISeguimientoAprendizRepository, SeguimientoAprendizRepository>();
             services.AddScoped<ITestGeneralRepository, TestGeneralRepository>();
             services.AddScoped<ITestPreguntasRepository, TestPreguntasRepository>();
+            services.AddScoped<IRefreshTokenService, RefreshTokenService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IUnidadDeTrabajo, UnidadDeTrabajo>();
 

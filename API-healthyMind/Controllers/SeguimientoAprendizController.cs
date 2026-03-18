@@ -4,13 +4,10 @@ using API_healthyMind.Models.DTO;
 using API_healthyMind.Models.DTO.Filtros;
 using API_healthyMind.Repositorios.Interfaces;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Text.Json.Serialization;
+using System.Security.Claims;
 using static API_healthyMind.Controllers.AprendizController;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace API_healthyMind.Controllers
 {
@@ -26,7 +23,13 @@ namespace API_healthyMind.Controllers
         public SeguimientoAprendizController(IUnidadDeTrabajo uow)
         {
             _uow = uow;
-            
+        }
+
+        private bool TryObtenerPsicologoIdAutenticado(out int psicologoId)
+        {
+            psicologoId = 0;
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("nameid");
+            return !string.IsNullOrWhiteSpace(userId) && int.TryParse(userId, out psicologoId);
         }
 
         private static object MapearAprendiz(Aprendiz d)
@@ -107,7 +110,13 @@ namespace API_healthyMind.Controllers
         }
 
 
-        // GET: NivelFormacionController
+        /// <summary>Devuelve los valores válidos para el campo estado de seguimiento (para dropdowns).</summary>
+        [HttpGet("estados")]
+        public IActionResult ObtenerEstadosSeguimiento()
+        {
+            return Ok(EstadosSeguimiento.Todos.Select(e => new { valor = e }));
+        }
+
         [HttpGet]
         public async Task<IActionResult> ObtenerTodos()
         {
@@ -214,6 +223,125 @@ namespace API_healthyMind.Controllers
             });
         }
 
+        /// <summary>
+        /// Lista los seguimientos del psicólogo autenticado. Solo rol Psicólogo.
+        /// </summary>
+        [Authorize(Roles = Roles.Psicologo)]
+        [HttpGet("mis-seguimientos")]
+        public async Task<IActionResult> ObtenerMisSeguimientos([FromQuery] PaginacionDTO p)
+        {
+            if (!TryObtenerPsicologoIdAutenticado(out var psicologoId))
+                return Forbid();
+
+            if (p.TamanoPagina > 100)
+                p.TamanoPagina = 100;
+
+            var query = _uow.SeguimientoAprendiz.Query()
+                .Include(c => c.SegAprendizFkNavigation)
+                    .ThenInclude(c => c.Aprendiz)
+                        .ThenInclude(c => c.Municipio)
+                            .ThenInclude(c => c.Regional)
+                .Include(c => c.SegAprendizFkNavigation.Aprendiz.EstadoAprendiz)
+                .Include(c => c.SegAprendizFkNavigation.Ficha)
+                    .ThenInclude(c => c.programaFormacion)
+                        .ThenInclude(c => c.Centro)
+                .Include(c => c.SegAprendizFkNavigation.Ficha)
+                    .ThenInclude(c => c.programaFormacion)
+                        .ThenInclude(c => c.NivelFormacion)
+                .Include(c => c.SegAprendizFkNavigation.Ficha)
+                    .ThenInclude(c => c.programaFormacion)
+                        .ThenInclude(c => c.Area)
+                .Include(c => c.SegPsicologoFkNavigation)
+                .Where(c => c.SegEstadoRegistro == "activo" && c.SegPsicologoFk == psicologoId)
+                .OrderByDescending(c => c.SegFechaSeguimiento);
+
+            var totalRegistros = await query.CountAsync();
+
+            var datos = await query
+                .Skip((p.Pagina - 1) * p.TamanoPagina)
+                .Take(p.TamanoPagina)
+                .ToListAsync();
+
+            var resultados = datos.Select(c => new
+            {
+                c.SegCodigo,
+                aprendiz = MapearAprendizFicha(c.SegAprendizFkNavigation),
+                psicologo = c.SegPsicologoFkNavigation,
+                FechaInicioSeguimiento = c.SegFechaSeguimiento,
+                FechaFinSeguimiento = c.SegFechaFin,
+                AreaRemitido = c.SegAreaRemitido,
+                TrimestreActual = c.SegTrimestreActual,
+                Motivo = c.SegMotivo,
+                Descripcion = c.SegDescripcion,
+                Recomendaciones = c.SegRecomendaciones,
+                EstadoSeguimiento = c.SegEstadoSeguimiento,
+                FirmaProfesional = c.SegFirmaProfesional,
+                FirmaAprendiz = c.SegFirmaAprendiz
+            });
+
+            return Ok(new
+            {
+                paginaActual = p.Pagina,
+                tamanoPagina = p.TamanoPagina,
+                totalRegistros,
+                totalPaginas = (int)Math.Ceiling(totalRegistros / (double)p.TamanoPagina),
+                resultados
+            });
+        }
+
+        /// <summary>
+        /// Obtiene un seguimiento por ID. Administrador ve cualquier; Psicólogo solo los suyos.
+        /// </summary>
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> ObtenerPorId(int id)
+        {
+            var seguimiento = await _uow.SeguimientoAprendiz.Query()
+                .Include(c => c.SegAprendizFkNavigation)
+                    .ThenInclude(c => c.Aprendiz)
+                        .ThenInclude(c => c.Municipio)
+                            .ThenInclude(c => c.Regional)
+                .Include(c => c.SegAprendizFkNavigation.Aprendiz.EstadoAprendiz)
+                .Include(c => c.SegAprendizFkNavigation.Ficha)
+                    .ThenInclude(c => c.programaFormacion)
+                        .ThenInclude(c => c.Centro)
+                .Include(c => c.SegAprendizFkNavigation.Ficha)
+                    .ThenInclude(c => c.programaFormacion)
+                        .ThenInclude(c => c.NivelFormacion)
+                .Include(c => c.SegAprendizFkNavigation.Ficha)
+                    .ThenInclude(c => c.programaFormacion)
+                        .ThenInclude(c => c.Area)
+                .Include(c => c.SegPsicologoFkNavigation)
+                .Where(c => c.SegCodigo == id && c.SegEstadoRegistro == "activo")
+                .FirstOrDefaultAsync();
+
+            if (seguimiento == null)
+                return NotFound("No se encontró el seguimiento.");
+
+            if (User.IsInRole(Roles.Psicologo) && seguimiento.SegPsicologoFk != null)
+            {
+                if (!TryObtenerPsicologoIdAutenticado(out var psicologoId) || seguimiento.SegPsicologoFk != psicologoId)
+                    return Forbid();
+            }
+
+            var resultado = new
+            {
+                seguimiento.SegCodigo,
+                aprendiz = seguimiento.SegAprendizFkNavigation == null ? null : MapearAprendizFicha(seguimiento.SegAprendizFkNavigation),
+                psicologo = seguimiento.SegPsicologoFkNavigation,
+                FechaInicioSeguimiento = seguimiento.SegFechaSeguimiento,
+                FechaFinSeguimiento = seguimiento.SegFechaFin,
+                AreaRemitido = seguimiento.SegAreaRemitido,
+                TrimestreActual = seguimiento.SegTrimestreActual,
+                Motivo = seguimiento.SegMotivo,
+                Descripcion = seguimiento.SegDescripcion,
+                Recomendaciones = seguimiento.SegRecomendaciones,
+                EstadoSeguimiento = seguimiento.SegEstadoSeguimiento,
+                FirmaProfesional = seguimiento.SegFirmaProfesional,
+                FirmaAprendiz = seguimiento.SegFirmaAprendiz
+            };
+
+            return Ok(resultado);
+        }
 
         [HttpGet("buscar")]
         public async Task<IActionResult> Buscar([FromQuery] FiltroAprendizFichaDTO f)
@@ -250,8 +378,10 @@ namespace API_healthyMind.Controllers
                 q = q.Where(x => x.SegAprendizFkNavigation.Ficha.programaFormacion.ProgNombre.ToLower()
                     .Contains(f.ProgramaNombre.ToLower()));
 
-            if (!string.IsNullOrEmpty(f.PsicologoID))
-                q = q.Where(x => x.SegPsicologoFkNavigation.PsiDocumento == f.PsicologoID);
+            if (f.PsicologoCodigo.HasValue)
+                q = q.Where(x => x.SegPsicologoFk == f.PsicologoCodigo.Value);
+            else if (!string.IsNullOrEmpty(f.PsicologoID))
+                q = q.Where(x => x.SegPsicologoFkNavigation != null && x.SegPsicologoFkNavigation.PsiDocumento == f.PsicologoID);
 
             if (!string.IsNullOrEmpty(f.TipoPoblacion))
                 q = q.Where(x => x.SegAprendizFkNavigation.Aprendiz.AprTipoPoblacion.ToLower() == f.TipoPoblacion.ToLower());
@@ -274,6 +404,13 @@ namespace API_healthyMind.Controllers
 
             if (f.TrimestreActual.HasValue)
                 q = q.Where(x => x.SegTrimestreActual == f.TrimestreActual.Value);
+
+            if (!string.IsNullOrWhiteSpace(f.EstadoSeguimiento))
+            {
+                var estadoNorm = EstadosSeguimiento.Normalizar(f.EstadoSeguimiento);
+                if (estadoNorm != null)
+                    q = q.Where(x => x.SegEstadoSeguimiento == estadoNorm);
+            }
 
             if (f.FechaInicioDesde.HasValue)
             {
@@ -354,14 +491,22 @@ namespace API_healthyMind.Controllers
 
         [HttpGet("estadistica/tendencia-estado")]
         public async Task<IActionResult> GetTendenciaSeguimientosPorEstado(
-            [FromQuery] int psicologoId,
+            [FromQuery] int? psicologoId,
             [FromQuery] int? anio,
             [FromQuery] int? cuatrimestre,
             [FromQuery] DateTime? desde,
             [FromQuery] DateTime? hasta)
         {
-            if (psicologoId <= 0)
-                return BadRequest("psicologoId debe ser mayor a 0.");
+            var psicologoIdFinal = psicologoId;
+            if (!psicologoIdFinal.HasValue || psicologoIdFinal.Value <= 0)
+            {
+                if (User.IsInRole(Roles.Psicologo) && TryObtenerPsicologoIdAutenticado(out var idJwt))
+                    psicologoIdFinal = idJwt;
+                else
+                    return BadRequest("psicologoId debe ser mayor a 0, o iniciar sesión como psicólogo para usar el ID del JWT.");
+            }
+
+            var psicologoIdVal = psicologoIdFinal.Value;
 
             DateTime inicioRango;
             DateTime finRango;
@@ -417,7 +562,7 @@ namespace API_healthyMind.Controllers
 
             var datos = await _uow.SeguimientoAprendiz.Query()
                 .Where(x => x.SegEstadoRegistro == "activo" &&
-                            x.SegPsicologoFk == psicologoId &&
+                            x.SegPsicologoFk == psicologoIdVal &&
                             x.SegFechaSeguimiento != null &&
                             x.SegEstadoSeguimiento != null &&
                             x.SegFechaSeguimiento.Value.Date >= inicioRango &&
@@ -451,15 +596,15 @@ namespace API_healthyMind.Controllers
 
             return Ok(new
             {
-                psicologoId,
+                psicologoId = psicologoIdVal,
                 filtros = new { anio, cuatrimestre, desde, hasta },
                 rango = new { desde = inicioRango, hasta = finRango },
                 meses = etiquetas,
                 series = new
                 {
-                    Criticos = SeriePorEstado("Criticos"),
-                    EnObservacion = SeriePorEstado("En Observacion"),
-                    Estables = SeriePorEstado("Estables")
+                    Criticos = SeriePorEstado(EstadosSeguimiento.Critico),
+                    EnObservacion = SeriePorEstado(EstadosSeguimiento.EnObservacion),
+                    Estables = SeriePorEstado(EstadosSeguimiento.Estable)
                 }
             });
         }
@@ -545,8 +690,14 @@ namespace API_healthyMind.Controllers
         public async Task<IActionResult> CrearRegistro(SeguimientoAprendizDTO dto)
         {
             if (dto == null)
+                return BadRequest("El cuerpo no debe estar vacio.");
+
+            if (!string.IsNullOrWhiteSpace(dto.SegEstadoSeguimiento))
             {
-                return BadRequest("El cuerpo no debe estar vacio!");
+                var estadoNorm = EstadosSeguimiento.Normalizar(dto.SegEstadoSeguimiento);
+                if (estadoNorm == null)
+                    return BadRequest($"SegEstadoSeguimiento debe ser uno de: {string.Join(", ", EstadosSeguimiento.Todos)}.");
+                dto.SegEstadoSeguimiento = estadoNorm;
             }
 
             var nuevoReg = new SeguimientoAprendiz
@@ -581,12 +732,17 @@ namespace API_healthyMind.Controllers
             && a.SegEstadoRegistro == "activo");
 
             if (!regEncontrado.Any())
+                return NotFound("No se encontró el seguimiento.");
+
+            if (!string.IsNullOrWhiteSpace(dto.SegEstadoSeguimiento))
             {
-                return NotFound("No se encontró este aprendiz");
+                var estadoNorm = EstadosSeguimiento.Normalizar(dto.SegEstadoSeguimiento);
+                if (estadoNorm == null)
+                    return BadRequest($"SegEstadoSeguimiento debe ser uno de: {string.Join(", ", EstadosSeguimiento.Todos)}.");
+                dto.SegEstadoSeguimiento = estadoNorm;
             }
 
             var resultado = regEncontrado.FirstOrDefault();
-
 
             resultado.SegAprendizFk = dto.SegAprendizFk;
             resultado.SegPsicologoFk = dto.SegPsicologoFk;

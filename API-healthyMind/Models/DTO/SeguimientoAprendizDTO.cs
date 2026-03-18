@@ -32,6 +32,7 @@ namespace API_healthyMind.Models.DTO
         public string? SegRecomendaciones { get; set; }
         public string? SegFirmaProfesional { get; set; }
         public string? SegFirmaAprendiz { get; set; }
+        /// <summary>Estado del seguimiento: Criticos, En Observacion, Estables.</summary>
         public string? SegEstadoSeguimiento { get; set; }
     }
 }

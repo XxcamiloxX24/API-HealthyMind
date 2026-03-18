@@ -63,6 +63,8 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<TestPreguntas> TestPregunta { get; set; }
 
+    public virtual DbSet<RefreshTokenRecord> RefreshTokenRecords { get; set; }
+
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -999,6 +1001,20 @@ public partial class AppDbContext : DbContext
                 .HasForeignKey(d => d.TesRespFk)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("test_pregunta_ibfk_2");
+        });
+
+        modelBuilder.Entity<RefreshTokenRecord>(entity =>
+        {
+            entity.ToTable("refresh_tokens");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("rt_id");
+            entity.Property(e => e.UserId).HasColumnName("rt_user_id").HasMaxLength(64);
+            entity.Property(e => e.Role).HasColumnName("rt_role").HasMaxLength(32);
+            entity.Property(e => e.TokenHash).HasColumnName("rt_token_hash").HasMaxLength(64);
+            entity.Property(e => e.ExpiresAt).HasColumnName("rt_expires_at").HasColumnType("datetime(6)");
+            entity.Property(e => e.CreatedAt).HasColumnName("rt_created_at").HasColumnType("datetime(6)");
+            entity.Property(e => e.RevokedAt).HasColumnName("rt_revoked_at").HasColumnType("datetime(6)");
+            entity.Property(e => e.ReplacedBy).HasColumnName("rt_replaced_by");
         });
 
         OnModelCreatingPartial(modelBuilder);

@@ -294,26 +294,16 @@ namespace API_healthyMind.Controllers
             public string NuevaPassword { get; set; }
         }
 
-        [Authorize(Policy = "AdministradorYPsicologo")]
+        [Authorize(Roles = Roles.Psicologo)]
         [HttpPut("cambiar-password")]
-        public async Task<IActionResult> CambiarPassword([FromQuery] int psicologoId, [FromBody] CambiarPasswordPsicologoDTO dto)
+        public async Task<IActionResult> CambiarPassword([FromBody] CambiarPasswordPsicologoDTO dto)
         {
-            if (psicologoId <= 0)
-            {
-                return BadRequest("psicologoId debe ser mayor a 0.");
-            }
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("nameid");
+            if (string.IsNullOrWhiteSpace(userId) || !int.TryParse(userId, out var psicologoId) || psicologoId <= 0)
+                return Forbid();
 
-            if (User.IsInRole(Roles.Psicologo))
-            {
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("nameid");
-
-                if (string.IsNullOrWhiteSpace(userId) ||
-                    !int.TryParse(userId, out var tokenId) ||
-                    tokenId != psicologoId)
-                {
-                    return Forbid();
-                }
-            }
+            if (dto == null || string.IsNullOrWhiteSpace(dto.PasswordActual) || string.IsNullOrWhiteSpace(dto.PasswordNueva))
+                return BadRequest("Se requieren PasswordActual y PasswordNueva.");
 
             var psicologo = await _uow.Psicologo.ObtenerTodoConCondicion(c => c.PsiCodigo == psicologoId);
             var resultado = psicologo.FirstOrDefault();

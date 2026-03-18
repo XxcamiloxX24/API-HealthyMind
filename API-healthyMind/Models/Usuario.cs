@@ -1,8 +1,13 @@
-﻿namespace API_healthyMind.Models
+using System.Text.Json.Serialization;
+
+namespace API_healthyMind.Models
 {
     public class Usuario
     {
-        public string CorreoPersonal { get; set; }
-        public string Password { get; set; }
+        [JsonPropertyName("correoPersonal")]
+        public string CorreoPersonal { get; set; } = "";
+
+        [JsonPropertyName("password")]
+        public string Password { get; set; } = "";
     }
 }
