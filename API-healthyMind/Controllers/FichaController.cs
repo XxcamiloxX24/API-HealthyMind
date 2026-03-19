@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using static API_healthyMind.Controllers.AprendizController;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
@@ -66,7 +67,44 @@ namespace API_healthyMind.Controllers
 
             return Ok(datos);
         }
-        
+
+        /// <summary>
+        /// Fichas activas del área que tiene asignado el psicólogo del JWT (<c>NameIdentifier</c> = <c>PsiCodigo</c>).
+        /// Si cambia el psicólogo del área, el listado refleja solo las fichas del área actual.
+        /// </summary>
+        [HttpGet("mis-fichas")]
+        [Authorize(Policy = "SoloPsicologo")]
+        public async Task<IActionResult> ObtenerMisFichas()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out var psiCodigo))
+                return Unauthorized("No se pudo identificar al psicólogo en el token.");
+
+            var query = _uow.Ficha.Query()
+                .AsNoTracking()
+                .Include(c => c.programaFormacion!)
+                    .ThenInclude(p => p.Area!)
+                    .ThenInclude(a => a.AreaPsicologo)
+                .Include(c => c.programaFormacion!)
+                    .ThenInclude(p => p.Centro!)
+                    .ThenInclude(c => c!.Regional)
+                .Include(c => c.programaFormacion!)
+                    .ThenInclude(p => p.NivelFormacion)
+                .Where(x =>
+                    x.FicEstadoRegistro != null &&
+                    x.FicEstadoRegistro.ToLower() == "activo" &&
+                    x.programaFormacion != null &&
+                    x.programaFormacion.Area != null &&
+                    x.programaFormacion.Area.AreaPsicCodFk == psiCodigo);
+
+            var datos = await query
+                .OrderByDescending(a => a.FicCodigo)
+                .ToListAsync();
+
+            var resultado = datos.Select(MapearFicha);
+            return Ok(resultado);
+        }
+
         [HttpGet("{id}")]
         public async Task<IActionResult> ObtenerPorId(int id)
         {

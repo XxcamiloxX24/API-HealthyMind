@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace API_healthyMind.Models;
@@ -10,6 +10,9 @@ public partial class PaginaDiario
     public string? PagTitulo { get; set; }
 
     public string? PagContenido { get; set; }
+
+    /// <summary>URL del enlace a la imagen asociada a la página.</summary>
+    public string? PagImagenUrl { get; set; }
 
     public DateTime PagFechaRealizacion { get; set; }
 

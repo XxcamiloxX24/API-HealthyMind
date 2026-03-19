@@ -476,6 +476,9 @@ public partial class AppDbContext : DbContext
                 .HasColumnType("enum('activo','inactivo')")
                 .HasColumnName("dia_estado_registro");
             entity.Property(e => e.DiaFechaCreacion).HasColumnName("dia_fecha_creacion");
+            entity.Property(e => e.DiaImagenUrl)
+                .HasMaxLength(500)
+                .HasColumnName("dia_imagen_url");
             entity.Property(e => e.DiaTitulo)
                 .HasMaxLength(100)
                 .HasColumnName("dia_titulo");
@@ -629,6 +632,9 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.PagContenido)
                 .HasColumnType("text")
                 .HasColumnName("pag_contenido");
+            entity.Property(e => e.PagImagenUrl)
+                .HasMaxLength(500)
+                .HasColumnName("pag_imagen_url");
             entity.Property(e => e.PagDiarioFk)
                 .HasColumnType("int(40)")
                 .HasColumnName("pag_diarioFK");

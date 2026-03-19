@@ -81,10 +81,9 @@ namespace API_healthyMind.Controllers
             {
                 d.DiaCodigo,
                 d.DiaTitulo,
+                d.DiaImagenUrl,
                 d.DiaFechaCreacion,
                 Aprendiz = MapearAprendiz(d.aprendiz)
-                
-
             };
         }
 
@@ -95,8 +94,9 @@ namespace API_healthyMind.Controllers
                 d.PagCodigo,
                 d.PagTitulo,
                 d.PagContenido,
+                d.PagImagenUrl,
                 d.PagFechaRealizacion,
-                diario = MapearAprendizDiario(d.PagDiarioFkNavigation),
+                diario = d.PagDiarioFkNavigation != null ? MapearAprendizDiario(d.PagDiarioFkNavigation) : null,
                 emociones = d.PagEmocionFkNavigation,
             };
         }
@@ -150,11 +150,54 @@ namespace API_healthyMind.Controllers
             return Ok(resultados);
         }
 
+        /// <summary>
+        /// Todas las páginas activas de un diario (contenido + emoción), ordenadas por fecha descendente.
+        /// </summary>
+        [HttpGet("diario/{diarioId:int}")]
+        public async Task<IActionResult> ObtenerPaginasPorDiario(int diarioId)
+        {
+            var existeDiario = await _uow.Diario.Query()
+                .AsNoTracking()
+                .AnyAsync(d => d.DiaCodigo == diarioId && d.DiaEstadoRegistro != null && d.DiaEstadoRegistro.ToLower() == "activo");
+
+            if (!existeDiario)
+                return NotFound("No existe un diario activo con ese código.");
+
+            var datos = await _uow.PaginaDiario.Query()
+                .AsNoTracking()
+                .Where(x =>
+                    x.PagDiarioFk == diarioId &&
+                    x.PagEstadoRegistro != null &&
+                    x.PagEstadoRegistro.ToLower() == "activo")
+                .Include(x => x.PagEmocionFkNavigation)
+                .OrderByDescending(x => x.PagFechaRealizacion)
+                .ThenByDescending(x => x.PagCodigo)
+                .ToListAsync();
+
+            var paginas = datos.Select(p => new
+            {
+                p.PagCodigo,
+                p.PagTitulo,
+                p.PagContenido,
+                p.PagFechaRealizacion,
+                emocion = p.PagEmocionFkNavigation
+            });
+
+            return Ok(new
+            {
+                diarioId,
+                totalPaginas = datos.Count,
+                paginas
+            });
+        }
+
+        /// <summary>
+        /// Todas las páginas activas de un día concreto del diario (sin paginar por índice).
+        /// Sin <paramref name="fecha"/>: día más reciente que tenga entradas.
+        /// Para otro día, enviar <paramref name="fecha"/>; use <c>fechaMasNuevaConEntradas</c> / <c>fechaMasAntiguaConEntradas</c> para navegar.
+        /// </summary>
         [HttpGet("paginacion-por-fecha")]
-        public async Task<IActionResult> ObtenerPaginacionPorFecha(
-        int diarioId,
-        int page = 1,
-        DateOnly? fecha = null)
+        public async Task<IActionResult> ObtenerPaginacionPorFecha(int diarioId, DateOnly? fecha = null)
         {
             var registros = await _uow.PaginaDiario.Query()
                 .Where(x => x.PagEstadoRegistro == "activo" && x.PagDiarioFk == diarioId)
@@ -171,43 +214,32 @@ namespace API_healthyMind.Controllers
             if (!grupos.Any())
                 return NotFound("No hay registros para este diario.");
 
-
+            int index;
             if (fecha.HasValue)
             {
                 var fechaBuscada = fecha.Value.ToDateTime(TimeOnly.MinValue);
-
-                var index = grupos.FindIndex(g => g.Key == fechaBuscada);
-
+                index = grupos.FindIndex(g => g.Key == fechaBuscada);
                 if (index == -1)
                     return NotFound("No existen registros para la fecha indicada.");
-
-                page = index + 1;
             }
+            else
+                index = 0;
 
-            // ==========================================
-            //    PAGINACIÓN NORMAL
-            // ==========================================
-            int totalPaginas = grupos.Count;
+            var grupoSeleccionado = grupos[index];
+            var datos = grupoSeleccionado.Select(MapearPaginaDiario).ToList();
 
-            if (page <= 0)
-                return BadRequest("La página debe ser mayor a 0.");
-
-            if (page > totalPaginas)
-                return NotFound("No existe esa página.");
-
-            var grupoSeleccionado = grupos[page - 1];
-
-            var datos = grupoSeleccionado.Select(MapearPaginaDiario);
+            var fechasOrdenadas = grupos.Select(g => DateOnly.FromDateTime(g.Key)).ToList();
 
             return Ok(new
             {
                 diarioId,
-                paginaActual = page,
-                paginaAnterior = page > 1 ? page - 1 : (int?)null,
-                paginaSiguiente = page < totalPaginas ? page + 1 : (int?)null,
-                totalPaginas,
-                fechaCorrespondiente = grupoSeleccionado.Key,
-                totalRegistrosEnFecha = grupoSeleccionado.Count(),
+                fechaCorrespondiente = DateOnly.FromDateTime(grupoSeleccionado.Key),
+                totalRegistrosEnFecha = datos.Count,
+                totalDiasConEntradas = grupos.Count,
+                indiceDia = index,
+                fechaMasNuevaConEntradas = index > 0 ? fechasOrdenadas[index - 1] : (DateOnly?)null,
+                fechaMasAntiguaConEntradas = index < grupos.Count - 1 ? fechasOrdenadas[index + 1] : (DateOnly?)null,
+                fechasConEntradas = fechasOrdenadas,
                 datos
             });
         }
@@ -224,6 +256,7 @@ namespace API_healthyMind.Controllers
             {
                 PagTitulo = dto.PagTitulo,
                 PagContenido = dto.PagContenido,
+                PagImagenUrl = dto.PagImagenUrl,
                 PagFechaRealizacion = DateTime.Now,
                 PagDiarioFk = dto.PagDiarioFk,
                 PagEmocionFk = dto.PagEmocionFk
@@ -272,9 +305,9 @@ namespace API_healthyMind.Controllers
             
             resultado.PagTitulo = dto.PagTitulo;
             resultado.PagContenido = dto.PagContenido;
+            resultado.PagImagenUrl = dto.PagImagenUrl;
             resultado.PagDiarioFk = dto.PagDiarioFk;
             resultado.PagEmocionFk = dto.PagEmocionFk;
-            
 
             _uow.PaginaDiario.Actualizar(resultado);
             await _uow.SaveChangesAsync();

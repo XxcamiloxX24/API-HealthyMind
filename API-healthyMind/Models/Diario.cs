@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace API_healthyMind.Models;
@@ -8,6 +8,9 @@ public partial class Diario
     public int DiaCodigo { get; set; }
 
     public string? DiaTitulo { get; set; }
+
+    /// <summary>URL del enlace a la imagen asociada al diario.</summary>
+    public string? DiaImagenUrl { get; set; }
 
     public DateOnly? DiaFechaCreacion { get; set; }
 

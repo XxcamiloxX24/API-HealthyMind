@@ -67,6 +67,10 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("PsicologoYAprendiz", policy =>
         policy.RequireRole(Roles.Psicologo, Roles.Aprendiz));
 
+    // Solo psicólogo (p. ej. fichas del área asignada al usuario del token)
+    options.AddPolicy("SoloPsicologo", policy =>
+        policy.RequireRole(Roles.Psicologo));
+
     // Cualquier usuario autenticado (los 3 roles)
     options.AddPolicy("CualquierRol", policy =>
         policy.RequireRole(

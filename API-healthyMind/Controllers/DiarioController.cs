@@ -81,10 +81,9 @@ namespace API_healthyMind.Controllers
             {
                 d.DiaCodigo,
                 d.DiaTitulo,
+                d.DiaImagenUrl,
                 d.DiaFechaCreacion,
                 Aprendiz = MapearAprendiz(d.aprendiz)
-                
-
             };
         }
 
@@ -242,6 +241,7 @@ namespace API_healthyMind.Controllers
             var nuevoReg = new Diario
             {
                 DiaTitulo = dto.DiaTitulo,
+                DiaImagenUrl = dto.DiaImagenUrl,
                 DiaFechaCreacion = DateOnly.FromDateTime(DateTime.Now),
                 DiaAprendizFk = dto.DiaAprendizFk,
             };
@@ -279,8 +279,8 @@ namespace API_healthyMind.Controllers
 
             
             resultado.DiaTitulo = dto.DiaTitulo;
+            resultado.DiaImagenUrl = dto.DiaImagenUrl;
             resultado.DiaAprendizFk = dto.DiaAprendizFk;
-            
 
             _uow.Diario.Actualizar(resultado);
             await _uow.SaveChangesAsync();
