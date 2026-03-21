@@ -1,4 +1,4 @@
-﻿using API_healthyMind.Repositorios.Interfaces;
+using API_healthyMind.Repositorios.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace API_healthyMind.Data
@@ -27,6 +27,7 @@ namespace API_healthyMind.Data
         public IProgramaFormacionRepository ProgramaFormacion { get; }
         public IPsicologoRepository Psicologo { get; }
         public IRegionalRepository Regional { get; }
+        public IReporteRepository Reporte { get; }
         public IRespuestasRepository Respuestas { get; }
         public ISeguimientoAprendizRepository SeguimientoAprendiz { get; }
         public ITestGeneralRepository TestGeneral { get; }
@@ -52,6 +53,7 @@ namespace API_healthyMind.Data
             IProgramaFormacionRepository programaFormacion, 
             IPsicologoRepository psicologo, 
             IRegionalRepository regional, 
+            IReporteRepository reporte,
             IRespuestasRepository respuestas, 
             ISeguimientoAprendizRepository seguimientoAprendiz, 
             ITestGeneralRepository testGeneral, 
@@ -78,6 +80,7 @@ namespace API_healthyMind.Data
             ProgramaFormacion = programaFormacion;
             Psicologo = psicologo;
             Regional = regional;
+            Reporte = reporte;
             Respuestas = respuestas;
             SeguimientoAprendiz = seguimientoAprendiz;
             TestGeneral = testGeneral;

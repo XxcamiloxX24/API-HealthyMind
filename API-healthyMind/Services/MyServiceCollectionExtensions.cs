@@ -29,6 +29,7 @@ namespace API_healthyMind.Services
             services.AddScoped<IProgramaFormacionRepository, ProgramaFormacionRepository>();
             services.AddScoped<IPsicologoRepository, PsicologoRepository>();
             services.AddScoped<IRegionalRepository, RegionalRepository>();
+            services.AddScoped<IReporteRepository, ReporteRepository>();
             services.AddScoped<IRespuestasRepository, RespuestaRepository>();
             services.AddScoped<ISeguimientoAprendizRepository, SeguimientoAprendizRepository>();
             services.AddScoped<ITestGeneralRepository, TestGeneralRepository>();

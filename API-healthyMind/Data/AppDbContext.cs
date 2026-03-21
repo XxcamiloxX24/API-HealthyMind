@@ -65,6 +65,10 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<RefreshTokenRecord> RefreshTokenRecords { get; set; }
 
+    public virtual DbSet<Reporte> Reportes { get; set; }
+
+    public virtual DbSet<ReporteHistorial> ReporteHistorials { get; set; }
+
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -1021,6 +1025,44 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.CreatedAt).HasColumnName("rt_created_at").HasColumnType("datetime(6)");
             entity.Property(e => e.RevokedAt).HasColumnName("rt_revoked_at").HasColumnType("datetime(6)");
             entity.Property(e => e.ReplacedBy).HasColumnName("rt_replaced_by");
+        });
+
+        modelBuilder.Entity<Reporte>(entity =>
+        {
+            entity.HasKey(e => e.RepCodigo).HasName("PRIMARY");
+            entity.ToTable("reporte");
+            entity.HasIndex(e => e.RepAprendizFk, "idx_reporte_aprendiz");
+            entity.HasIndex(e => e.RepPsicologoFk, "idx_reporte_psicologo");
+            entity.HasIndex(e => e.RepEstado, "idx_reporte_estado");
+            entity.HasIndex(e => e.RepFechaCreacion, "idx_reporte_fecha");
+            entity.Property(e => e.RepCodigo).HasColumnType("int").HasColumnName("rep_codigo");
+            entity.Property(e => e.RepTitulo).HasMaxLength(200).HasColumnName("rep_titulo");
+            entity.Property(e => e.RepDescripcion).HasColumnType("text").HasColumnName("rep_descripcion");
+            entity.Property(e => e.RepFechaCreacion).HasColumnType("datetime").HasColumnName("rep_fecha_creacion");
+            entity.Property(e => e.RepEstado).HasMaxLength(50).HasColumnName("rep_estado");
+            entity.Property(e => e.RepPrioridad).HasMaxLength(50).HasColumnName("rep_prioridad");
+            entity.Property(e => e.RepCategoria).HasMaxLength(100).HasColumnName("rep_categoria");
+            entity.Property(e => e.RepAsignadoA).HasMaxLength(100).HasColumnName("rep_asignado_a");
+            entity.Property(e => e.RepFechaActualizacion).HasColumnType("datetime").HasColumnName("rep_fecha_actualizacion");
+            entity.Property(e => e.RepTipoReportador).HasMaxLength(50).HasColumnName("rep_tipo_reportador");
+            entity.Property(e => e.RepAprendizFk).HasColumnType("int").HasColumnName("rep_aprendiz_fk");
+            entity.Property(e => e.RepPsicologoFk).HasColumnType("int").HasColumnName("rep_psicologo_fk");
+            entity.Property(e => e.RepEstadoRegistro).HasMaxLength(20).HasColumnName("rep_estado_registro");
+            entity.HasOne(d => d.RepAprendizFkNavigation).WithMany().HasForeignKey(d => d.RepAprendizFk).OnDelete(DeleteBehavior.SetNull).HasConstraintName("fk_rep_aprendiz");
+            entity.HasOne(d => d.RepPsicologoFkNavigation).WithMany().HasForeignKey(d => d.RepPsicologoFk).OnDelete(DeleteBehavior.SetNull).HasConstraintName("fk_rep_psicologo");
+        });
+
+        modelBuilder.Entity<ReporteHistorial>(entity =>
+        {
+            entity.HasKey(e => e.RephCodigo).HasName("PRIMARY");
+            entity.ToTable("reporte_historial");
+            entity.HasIndex(e => e.RephReporteFk, "idx_historial_reporte");
+            entity.Property(e => e.RephCodigo).HasColumnType("int").HasColumnName("reph_codigo");
+            entity.Property(e => e.RephReporteFk).HasColumnType("int").HasColumnName("reph_reporte_fk");
+            entity.Property(e => e.RephAccion).HasMaxLength(100).HasColumnName("reph_accion");
+            entity.Property(e => e.RephDescripcion).HasMaxLength(500).HasColumnName("reph_descripcion");
+            entity.Property(e => e.RephFecha).HasColumnType("datetime").HasColumnName("reph_fecha");
+            entity.HasOne(d => d.RephReporteFkNavigation).WithMany(p => p.ReporteHistorials).HasForeignKey(d => d.RephReporteFk).OnDelete(DeleteBehavior.Cascade).HasConstraintName("fk_reph_reporte");
         });
 
         OnModelCreatingPartial(modelBuilder);

@@ -1,4 +1,4 @@
-﻿using API_healthyMind.Repositorios.Interfaces;
+using API_healthyMind.Repositorios.Interfaces;
 
 namespace API_healthyMind.Data
 {
@@ -24,6 +24,7 @@ namespace API_healthyMind.Data
         IProgramaFormacionRepository ProgramaFormacion { get; }
         IPsicologoRepository Psicologo {  get; }
         IRegionalRepository Regional { get; }
+        IReporteRepository Reporte { get; }
         IRespuestasRepository Respuestas { get; }
         ISeguimientoAprendizRepository SeguimientoAprendiz { get; }
         ITestGeneralRepository TestGeneral {  get; }
