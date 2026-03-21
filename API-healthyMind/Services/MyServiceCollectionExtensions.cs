@@ -29,6 +29,7 @@ namespace API_healthyMind.Services
             services.AddScoped<IProgramaFormacionRepository, ProgramaFormacionRepository>();
             services.AddScoped<IPsicologoRepository, PsicologoRepository>();
             services.AddScoped<IRegionalRepository, RegionalRepository>();
+            services.AddScoped<IRecomendacionRepository, RecomendacionRepository>();
             services.AddScoped<IReporteRepository, ReporteRepository>();
             services.AddScoped<IRespuestasRepository, RespuestaRepository>();
             services.AddScoped<ISeguimientoAprendizRepository, SeguimientoAprendizRepository>();
@@ -43,6 +44,7 @@ namespace API_healthyMind.Services
             services.AddControllers()
                     .AddJsonOptions(options =>
                     {
+                        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
                         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
                         options.JsonSerializerOptions.WriteIndented = true;
                     });

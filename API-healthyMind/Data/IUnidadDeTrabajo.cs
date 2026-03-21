@@ -24,6 +24,7 @@ namespace API_healthyMind.Data
         IProgramaFormacionRepository ProgramaFormacion { get; }
         IPsicologoRepository Psicologo {  get; }
         IRegionalRepository Regional { get; }
+        IRecomendacionRepository Recomendacion { get; }
         IReporteRepository Reporte { get; }
         IRespuestasRepository Respuestas { get; }
         ISeguimientoAprendizRepository SeguimientoAprendiz { get; }

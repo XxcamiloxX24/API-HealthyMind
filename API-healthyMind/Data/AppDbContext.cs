@@ -69,6 +69,8 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<ReporteHistorial> ReporteHistorials { get; set; }
 
+    public virtual DbSet<Recomendacion> Recomendacions { get; set; }
+
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -902,10 +904,6 @@ public partial class AppDbContext : DbContext
                 .HasComment("Psicologo")
                 .HasColumnType("int(40)")
                 .HasColumnName("seg_psicologoFK");
-            entity.Property(e => e.SegRecomendaciones)
-                .HasMaxLength(400)
-                .HasComment("recomendaciones para el aprendiz")
-                .HasColumnName("seg_recomendaciones");
             entity.Property(e => e.SegTrimestreActual)
                 .HasColumnType("int(11)")
                 .HasColumnName("seg_trimestre_actual");
@@ -923,6 +921,47 @@ public partial class AppDbContext : DbContext
             entity.HasOne(d => d.SegPsicologoFkNavigation).WithMany(p => p.SeguimientoAprendizs)
                 .HasForeignKey(d => d.SegPsicologoFk)
                 .HasConstraintName("seguimiento_aprendiz_ibfk_3");
+        });
+
+        modelBuilder.Entity<Recomendacion>(entity =>
+        {
+            entity.HasKey(e => e.RecCodigo).HasName("PRIMARY");
+            entity.ToTable("recomendacion");
+            entity.HasIndex(e => e.RecSeguimientoFk, "rec_seguimiento_fk");
+            entity.Property(e => e.RecCodigo)
+                .HasComment("Identificador de la recomendación")
+                .HasColumnType("int(40)")
+                .HasColumnName("rec_codigo");
+            entity.Property(e => e.RecSeguimientoFk)
+                .HasComment("Seguimiento al que pertenece")
+                .HasColumnType("int(40)")
+                .HasColumnName("rec_seguimiento_fk");
+            entity.Property(e => e.RecTitulo)
+                .HasMaxLength(200)
+                .HasComment("Título de la recomendación")
+                .HasColumnName("rec_titulo");
+            entity.Property(e => e.RecDescripcion)
+                .HasMaxLength(500)
+                .HasColumnName("rec_descripcion");
+            entity.Property(e => e.RecFechaVencimiento)
+                .HasComment("Fecha de finalización: se establece al marcar como Completada")
+                .HasColumnName("rec_fecha_vencimiento");
+            entity.Property(e => e.RecEstado)
+                .HasColumnType("enum('Pendiente','En Progreso','Completada')")
+                .HasColumnName("rec_estado");
+            entity.Property(e => e.RecEstadoRegistro)
+                .HasColumnType("enum('activo','inactivo')")
+                .HasDefaultValueSql("'activo'")
+                .HasColumnName("rec_estado_registro");
+            entity.Property(e => e.RecFechaCreacion)
+                .HasColumnName("rec_fecha_creacion");
+            entity.Property(e => e.RecFechaActualizacion)
+                .HasColumnName("rec_fecha_actualizacion");
+            entity.HasOne(d => d.RecSeguimientoFkNavigation)
+                .WithMany(p => p.Recomendaciones)
+                .HasForeignKey(d => d.RecSeguimientoFk)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("recomendacion_ibfk_1");
         });
 
         modelBuilder.Entity<TestGeneral>(entity =>

@@ -1,0 +1,130 @@
+{
+  "info": {
+    "name": "Reporte - Endpoints para agregar",
+    "description": "Carpeta Reporte: arrastrar a la colección API-healthyMind",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://localhost:7001" }
+  ],
+  "item": [
+    {
+      "name": "Reporte",
+      "item": [
+        {
+          "name": "Obtener estados y prioridades",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/Reporte/estados",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "Reporte", "estados"]
+            }
+          }
+        },
+        {
+          "name": "Listar reportes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/Reporte?estado=&prioridad=&categoria=",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "Reporte"],
+              "query": [
+                { "key": "estado", "value": "", "disabled": true },
+                { "key": "prioridad", "value": "", "disabled": true },
+                { "key": "categoria", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Obtener reporte por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/Reporte/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "Reporte", "1"]
+            }
+          }
+        },
+        {
+          "name": "Crear reporte",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Error en login\",\n  \"descripcion\": \"No deja iniciar sesión\",\n  \"prioridad\": \"alta\",\n  \"categoria\": \"Autenticación\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/Reporte",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "Reporte"]
+            }
+          }
+        },
+        {
+          "name": "Cambiar estado",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"proceso\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/Reporte/1/estado",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "Reporte", "1", "estado"]
+            }
+          }
+        },
+        {
+          "name": "Cambiar prioridad",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prioridad\": \"alta\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/Reporte/1/prioridad",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "Reporte", "1", "prioridad"]
+            }
+          }
+        },
+        {
+          "name": "Agregar comentario",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comentario\": \"Revisando el caso\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/Reporte/1/comentario",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "Reporte", "1", "comentario"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

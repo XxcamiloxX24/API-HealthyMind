@@ -78,34 +78,52 @@ namespace API_healthyMind.Controllers
             };
         }
 
-        private static object MapearAprendizFicha(AprendizFicha d)
+        private static object MapearRecomendacion(Recomendacion r)
         {
             return new
             {
-                d.AprFicCodigo,
-                Aprendiz = MapearAprendiz(d.Aprendiz),
-                Ficha = new
+                r.RecCodigo,
+                r.RecTitulo,
+                r.RecDescripcion,
+                r.RecFechaVencimiento,
+                r.RecEstado,
+                r.RecFechaCreacion,
+                r.RecFechaActualizacion
+            };
+        }
+
+        private static object MapearAprendizFicha(AprendizFicha d)
+        {
+            var pf = d?.Ficha?.programaFormacion;
+            var area = pf?.Area;
+            var centro = pf?.Centro;
+            var nivel = pf?.NivelFormacion;
+            return new
+            {
+                d?.AprFicCodigo,
+                Aprendiz = d?.Aprendiz != null ? MapearAprendiz(d.Aprendiz) : null,
+                Ficha = d?.Ficha == null ? null : new
                 {
                     d.Ficha.FicCodigo,
                     d.Ficha.FicJornada,
                     d.Ficha.FicFechaInicio,
                     d.Ficha.FicFechaFin,
                     d.Ficha.FicEstadoFormacion,
-                    ProgramaFormacion = new
+                    ProgramaFormacion = pf == null ? null : new
                     {
-                        d.Ficha.programaFormacion.ProgCodigo,
-                        d.Ficha.programaFormacion.ProgNombre,
-                        d.Ficha.programaFormacion.ProgModalidad,
-                        d.Ficha.programaFormacion.ProgFormaModalidad,
-                        d.Ficha.programaFormacion.NivelFormacion,
-                        Area = new {
-                            d.Ficha.programaFormacion.Area.AreaCodigo,
-                            d.Ficha.programaFormacion.Area.AreaNombre,
+                        pf.ProgCodigo,
+                        pf.ProgNombre,
+                        pf.ProgModalidad,
+                        pf.ProgFormaModalidad,
+                        NivelFormacion = nivel,
+                        Area = area == null ? null : new
+                        {
+                            area.AreaCodigo,
+                            area.AreaNombre,
                         },
-                        d.Ficha.programaFormacion.Centro
+                        Centro = centro
                     }
                 }
-
             };
         }
 
@@ -136,6 +154,7 @@ namespace API_healthyMind.Controllers
                             .ThenInclude(c => c.programaFormacion)
                                 .ThenInclude(c => c.Area)
                         .Include(c => c.SegPsicologoFkNavigation)
+                        .Include(c => c.Recomendaciones)
                         );
                             
                        
@@ -156,7 +175,11 @@ namespace API_healthyMind.Controllers
                 TrimestreActual = c.SegTrimestreActual,
                 Motivo = c.SegMotivo,
                 Descripcion = c.SegDescripcion,
-                Recomendaciones = c.SegRecomendaciones,
+                Recomendaciones = (c.Recomendaciones ?? Enumerable.Empty<Recomendacion>())
+                    .Where(r => r.RecEstadoRegistro == "activo")
+                    .OrderByDescending(r => r.RecFechaCreacion)
+                    .Select(MapearRecomendacion)
+                    .ToList(),
                 EstadoSeguimiento = c.SegEstadoSeguimiento,
                 FirmaProfesional = c.SegFirmaProfesional,
                 FirmaAprendiz = c.SegFirmaAprendiz
@@ -187,6 +210,7 @@ namespace API_healthyMind.Controllers
                             .ThenInclude(c => c.programaFormacion)
                                 .ThenInclude(c => c.Area)
                         .Include(c => c.SegPsicologoFkNavigation)
+                        .Include(c => c.Recomendaciones)
                         .Where(c => c.SegEstadoRegistro == "activo"); // Orden para paginar estable
 
             var totalRegistros = await query.CountAsync();
@@ -207,7 +231,11 @@ namespace API_healthyMind.Controllers
                 TrimestreActual = c.SegTrimestreActual,
                 Motivo = c.SegMotivo,
                 Descripcion = c.SegDescripcion,
-                Recomendaciones = c.SegRecomendaciones,
+                Recomendaciones = (c.Recomendaciones ?? Enumerable.Empty<Recomendacion>())
+                    .Where(r => r.RecEstadoRegistro == "activo")
+                    .OrderByDescending(r => r.RecFechaCreacion)
+                    .Select(MapearRecomendacion)
+                    .ToList(),
                 EstadoSeguimiento = c.SegEstadoSeguimiento,
                 FirmaProfesional = c.SegFirmaProfesional,
                 FirmaAprendiz = c.SegFirmaAprendiz
@@ -252,6 +280,7 @@ namespace API_healthyMind.Controllers
                     .ThenInclude(c => c.programaFormacion)
                         .ThenInclude(c => c.Area)
                 .Include(c => c.SegPsicologoFkNavigation)
+                .Include(c => c.Recomendaciones)
                 .Where(c => c.SegEstadoRegistro == "activo" && c.SegPsicologoFk == psicologoId)
                 .OrderByDescending(c => c.SegFechaSeguimiento);
 
@@ -273,7 +302,11 @@ namespace API_healthyMind.Controllers
                 TrimestreActual = c.SegTrimestreActual,
                 Motivo = c.SegMotivo,
                 Descripcion = c.SegDescripcion,
-                Recomendaciones = c.SegRecomendaciones,
+                Recomendaciones = (c.Recomendaciones ?? Enumerable.Empty<Recomendacion>())
+                    .Where(r => r.RecEstadoRegistro == "activo")
+                    .OrderByDescending(r => r.RecFechaCreacion)
+                    .Select(MapearRecomendacion)
+                    .ToList(),
                 EstadoSeguimiento = c.SegEstadoSeguimiento,
                 FirmaProfesional = c.SegFirmaProfesional,
                 FirmaAprendiz = c.SegFirmaAprendiz
@@ -311,6 +344,7 @@ namespace API_healthyMind.Controllers
                     .ThenInclude(c => c.programaFormacion)
                         .ThenInclude(c => c.Area)
                 .Include(c => c.SegPsicologoFkNavigation)
+                .Include(c => c.Recomendaciones)
                 .Where(c => c.SegCodigo == id && c.SegEstadoRegistro == "activo")
                 .FirstOrDefaultAsync();
 
@@ -334,7 +368,11 @@ namespace API_healthyMind.Controllers
                 TrimestreActual = seguimiento.SegTrimestreActual,
                 Motivo = seguimiento.SegMotivo,
                 Descripcion = seguimiento.SegDescripcion,
-                Recomendaciones = seguimiento.SegRecomendaciones,
+                Recomendaciones = (seguimiento.Recomendaciones ?? Enumerable.Empty<Recomendacion>())
+                    .Where(r => r.RecEstadoRegistro == "activo")
+                    .OrderByDescending(r => r.RecFechaCreacion)
+                    .Select(MapearRecomendacion)
+                    .ToList(),
                 EstadoSeguimiento = seguimiento.SegEstadoSeguimiento,
                 FirmaProfesional = seguimiento.SegFirmaProfesional,
                 FirmaAprendiz = seguimiento.SegFirmaAprendiz
@@ -361,7 +399,8 @@ namespace API_healthyMind.Controllers
                         .Include(c => c.SegAprendizFkNavigation.Ficha)
                             .ThenInclude(c => c.programaFormacion)
                                 .ThenInclude(c => c.Area)
-                        .Include(c => c.SegPsicologoFkNavigation);
+                        .Include(c => c.SegPsicologoFkNavigation)
+                        .Include(c => c.Recomendaciones);
 
             // ======================
             //    FILTROS
@@ -455,7 +494,11 @@ namespace API_healthyMind.Controllers
                 TrimestreActual = c.SegTrimestreActual,
                 Motivo = c.SegMotivo,
                 Descripcion = c.SegDescripcion,
-                Recomendaciones = c.SegRecomendaciones,
+                Recomendaciones = (c.Recomendaciones ?? Enumerable.Empty<Recomendacion>())
+                    .Where(r => r.RecEstadoRegistro == "activo")
+                    .OrderByDescending(r => r.RecFechaCreacion)
+                    .Select(MapearRecomendacion)
+                    .ToList(),
                 EstadoSeguimiento = c.SegEstadoSeguimiento,
                 FirmaProfesional = c.SegFirmaProfesional,
                 FirmaAprendiz = c.SegFirmaAprendiz
@@ -710,7 +753,6 @@ namespace API_healthyMind.Controllers
                 SegTrimestreActual = dto.SegTrimestreActual,
                 SegMotivo = dto.SegMotivo,
                 SegDescripcion = dto.SegDescripcion,
-                SegRecomendaciones = dto.SegRecomendaciones,
                 SegEstadoSeguimiento = dto.SegEstadoSeguimiento,
                 SegFirmaProfesional = dto.SegFirmaProfesional,
                 SegFirmaAprendiz = dto.SegFirmaAprendiz
@@ -752,7 +794,6 @@ namespace API_healthyMind.Controllers
             resultado.SegTrimestreActual = dto.SegTrimestreActual;
             resultado.SegMotivo = dto.SegMotivo;
             resultado.SegDescripcion = dto.SegDescripcion;
-            resultado.SegRecomendaciones = dto.SegRecomendaciones;
             resultado.SegEstadoSeguimiento = dto.SegEstadoSeguimiento;
             resultado.SegFirmaProfesional = dto.SegFirmaProfesional;
             resultado.SegFirmaAprendiz = dto.SegFirmaAprendiz;

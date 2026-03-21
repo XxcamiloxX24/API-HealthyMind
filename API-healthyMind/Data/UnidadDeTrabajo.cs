@@ -27,6 +27,7 @@ namespace API_healthyMind.Data
         public IProgramaFormacionRepository ProgramaFormacion { get; }
         public IPsicologoRepository Psicologo { get; }
         public IRegionalRepository Regional { get; }
+        public IRecomendacionRepository Recomendacion { get; }
         public IReporteRepository Reporte { get; }
         public IRespuestasRepository Respuestas { get; }
         public ISeguimientoAprendizRepository SeguimientoAprendiz { get; }
@@ -52,7 +53,8 @@ namespace API_healthyMind.Data
             IPreguntasRepository preguntas, 
             IProgramaFormacionRepository programaFormacion, 
             IPsicologoRepository psicologo, 
-            IRegionalRepository regional, 
+            IRegionalRepository regional,
+            IRecomendacionRepository recomendacion,
             IReporteRepository reporte,
             IRespuestasRepository respuestas, 
             ISeguimientoAprendizRepository seguimientoAprendiz, 
@@ -80,6 +82,7 @@ namespace API_healthyMind.Data
             ProgramaFormacion = programaFormacion;
             Psicologo = psicologo;
             Regional = regional;
+            Recomendacion = recomendacion;
             Reporte = reporte;
             Respuestas = respuestas;
             SeguimientoAprendiz = seguimientoAprendiz;

@@ -41,10 +41,6 @@ public partial class SeguimientoAprendiz
     /// </summary>
     public string? SegDescripcion { get; set; }
 
-    /// <summary>
-    /// recomendaciones para el aprendiz
-    /// </summary>
-    public string? SegRecomendaciones { get; set; }
     public string? SegFirmaProfesional { get; set; }
     public string? SegFirmaAprendiz { get; set; }
 
@@ -55,4 +51,6 @@ public partial class SeguimientoAprendiz
     public virtual AprendizFicha? SegAprendizFkNavigation { get; set; }
 
     public virtual Psicologo? SegPsicologoFkNavigation { get; set; }
+
+    public virtual ICollection<Recomendacion> Recomendaciones { get; set; } = new List<Recomendacion>();
 }
