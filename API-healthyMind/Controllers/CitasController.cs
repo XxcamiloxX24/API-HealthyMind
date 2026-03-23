@@ -60,6 +60,13 @@ namespace API_healthyMind.Controllers
             return !string.IsNullOrWhiteSpace(userId) && int.TryParse(userId, out aprendizId);
         }
 
+        private bool TryObtenerPsicologoIdAutenticado(out int psicologoId)
+        {
+            psicologoId = 0;
+            var userId = ObtenerIdUsuarioAutenticado();
+            return !string.IsNullOrWhiteSpace(userId) && int.TryParse(userId, out psicologoId);
+        }
+
         private async Task<AprendizFicha?> ObtenerAprendizFichaActivaAsync(int aprendizId)
         {
             return await _uow.AprendizFicha.Query()
@@ -215,9 +222,10 @@ namespace API_healthyMind.Controllers
                 c.CitFechaProgramada,
                 c.CitHoraInicio,
                 c.CitHoraFin,
-                c.CitMotivo,
+                CitMotivo = c.CitMotivo ?? c.CitMotivoSolicitud,
                 c.CitAnotaciones,
                 c.CitEstadoCita,
+                c.CitFechaCreacion,
                 aprendizCita = MapearAprendizFicha(c.CitAprCodFkNavigation),
                 psicologo = c.CitPsiCodFkNavigation,
             };
@@ -725,7 +733,104 @@ namespace API_healthyMind.Controllers
             return Ok(resultado);
         }
 
+        /// <summary>
+        /// Citas del psicólogo autenticado en un rango de fechas. Ideal para el calendario/agenda.
+        /// GET api/Citas/agenda?desde=2026-03-16&amp;hasta=2026-03-22
+        /// </summary>
+        [Authorize(Roles = Roles.Psicologo)]
+        [HttpGet("agenda")]
+        public async Task<IActionResult> ObtenerAgendaPsicologo(
+            [FromQuery] DateOnly? desde,
+            [FromQuery] DateOnly? hasta)
+        {
+            if (!TryObtenerPsicologoIdAutenticado(out var psicologoId))
+            {
+                return Forbid();
+            }
 
+            var hoy = DateOnly.FromDateTime(DateTime.Today);
+            var inicio = desde ?? hoy.AddDays(-7);
+            var fin = hasta ?? hoy.AddDays(30);
+            if (fin < inicio)
+            {
+                (inicio, fin) = (fin, inicio);
+            }
+            var diasMax = 90;
+            if ((fin.ToDateTime(TimeOnly.MinValue) - inicio.ToDateTime(TimeOnly.MinValue)).TotalDays > diasMax)
+            {
+                fin = inicio.AddDays(diasMax);
+            }
+
+            var datos = await _uow.Citas.Query()
+                .Include(c => c.CitAprCodFkNavigation)
+                    .ThenInclude(c => c.Aprendiz)
+                        .ThenInclude(c => c.Municipio)
+                            .ThenInclude(c => c.Regional)
+                .Include(c => c.CitAprCodFkNavigation.Aprendiz.EstadoAprendiz)
+                .Include(c => c.CitAprCodFkNavigation.Ficha)
+                    .ThenInclude(c => c.programaFormacion)
+                        .ThenInclude(c => c.Centro)
+                .Include(c => c.CitAprCodFkNavigation.Ficha)
+                    .ThenInclude(c => c.programaFormacion)
+                        .ThenInclude(c => c.NivelFormacion)
+                .Include(c => c.CitAprCodFkNavigation.Ficha)
+                    .ThenInclude(c => c.programaFormacion)
+                        .ThenInclude(c => c.Area)
+                .Include(c => c.CitPsiCodFkNavigation)
+                .Where(c => c.CitEstadoRegistro == "activo" &&
+                            c.CitPsiCodFk == psicologoId &&
+                            c.CitEstadoCita != null &&
+                            c.CitEstadoCita.ToLower() != EstadoPendiente &&
+                            c.CitFechaProgramada.HasValue &&
+                            c.CitFechaProgramada.Value >= inicio &&
+                            c.CitFechaProgramada.Value <= fin)
+                .OrderBy(c => c.CitFechaProgramada)
+                .ThenBy(c => c.CitHoraInicio)
+                .ToListAsync();
+
+            var resultado = datos.Select(c => MapearCita(c));
+            return Ok(resultado);
+        }
+
+        /// <summary>
+        /// Solicitudes de cita pendientes del psicólogo (estudiantes que solicitaron y aún no se han programado).
+        /// GET api/Citas/solicitudes-pendientes
+        /// </summary>
+        [Authorize(Roles = Roles.Psicologo)]
+        [HttpGet("solicitudes-pendientes")]
+        public async Task<IActionResult> ObtenerSolicitudesPendientes()
+        {
+            if (!TryObtenerPsicologoIdAutenticado(out var psicologoId))
+            {
+                return Forbid();
+            }
+
+            var datos = await _uow.Citas.Query()
+                .Include(c => c.CitAprCodFkNavigation)
+                    .ThenInclude(c => c.Aprendiz)
+                        .ThenInclude(c => c.Municipio)
+                            .ThenInclude(c => c.Regional)
+                .Include(c => c.CitAprCodFkNavigation.Aprendiz.EstadoAprendiz)
+                .Include(c => c.CitAprCodFkNavigation.Ficha)
+                    .ThenInclude(c => c.programaFormacion)
+                        .ThenInclude(c => c.Centro)
+                .Include(c => c.CitAprCodFkNavigation.Ficha)
+                    .ThenInclude(c => c.programaFormacion)
+                        .ThenInclude(c => c.NivelFormacion)
+                .Include(c => c.CitAprCodFkNavigation.Ficha)
+                    .ThenInclude(c => c.programaFormacion)
+                        .ThenInclude(c => c.Area)
+                .Include(c => c.CitPsiCodFkNavigation)
+                .Where(c => c.CitEstadoRegistro == "activo" &&
+                            c.CitPsiCodFk == psicologoId &&
+                            c.CitEstadoCita != null &&
+                            c.CitEstadoCita.ToLower() == EstadoPendiente)
+                .OrderByDescending(c => c.CitFechaCreacion)
+                .ToListAsync();
+
+            var resultado = datos.Select(c => MapearCita(c));
+            return Ok(resultado);
+        }
 
         [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPost]
@@ -1017,7 +1122,7 @@ namespace API_healthyMind.Controllers
         {
             if (dto == null)
             {
-                return BadRequest("El cuerpo no debe estar vacio!");
+                return BadRequest(new { message = "El cuerpo no debe estar vacio!" });
             }
 
             var regEncontrado = await _uow.Citas.ObtenerTodoConCondicion(a => a.CitCodigo == id 
@@ -1025,7 +1130,7 @@ namespace API_healthyMind.Controllers
 
             if (!regEncontrado.Any())
             {
-                return NotFound("No se encontró una solicitud pendiente con ese id.");
+                return NotFound(new { message = "No se encontró una solicitud pendiente con ese id." });
             }
 
             var resultado = regEncontrado.FirstOrDefault();
@@ -1033,7 +1138,7 @@ namespace API_healthyMind.Controllers
             var errorValidacion = ValidarDatosAgenda(dto);
             if (errorValidacion != null)
             {
-                return BadRequest(errorValidacion);
+                return BadRequest(new { message = errorValidacion });
             }
 
             resultado.CitTipoCita = dto.CitTipoCita!.Trim().ToLower();

@@ -164,6 +164,10 @@ const folders = [
   {
     name: "Citas",
     item: [
+      req("GET", "/api/Citas/agenda", "agenda (psicólogo, rango fechas)", {
+        query: "desde=2026-03-16&hasta=2026-03-22",
+        desc: "Citas del psicólogo autenticado. Requiere rol Psicólogo. Parámetros opcionales: desde, hasta (YYYY-MM-DD).",
+      }),
       req("GET", "/api/Citas", "listar (filtros query)"),
       req("GET", "/api/Citas/listar-todas", "listar-todas"),
       req("GET", "/api/Citas/listar-activas", "listar-activas"),

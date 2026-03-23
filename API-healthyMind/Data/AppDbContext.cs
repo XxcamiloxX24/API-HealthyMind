@@ -556,6 +556,10 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(500)
                 .HasColumnName("car_descripcion");
 
+            entity.Property(e => e.carImagenUrl)
+                .HasMaxLength(500)
+                .HasColumnName("car_imagen_url");
+
             entity.Property(e => e.carLink)
                 .HasMaxLength(500)
                 .HasColumnName("car_link");
@@ -908,10 +912,10 @@ public partial class AppDbContext : DbContext
                 .HasColumnType("int(11)")
                 .HasColumnName("seg_trimestre_actual");
             entity.Property(e => e.SegFirmaProfesional)
-                .HasMaxLength(100)
+                .HasMaxLength(500)
                 .HasColumnName("seg_firma_profesional");
             entity.Property(e => e.SegFirmaAprendiz)
-                .HasMaxLength(100)
+                .HasMaxLength(500)
                 .HasColumnName("seg_firma_aprendiz");
 
             entity.HasOne(d => d.SegAprendizFkNavigation).WithMany(p => p.SeguimientoAprendizs)
