@@ -36,6 +36,19 @@ namespace API_healthyMind.Controllers
             public int TamanoPagina { get; set; } = 10;
         }
 
+        public class CambiarPasswordAprendizDTO
+        {
+            public string PasswordActual { get; set; } = "";
+            public string PasswordNueva { get; set; } = "";
+        }
+
+        public class ResetearPasswordAprendizDTO
+        {
+            public int AprendizId { get; set; }
+            public string Codigo { get; set; } = "";
+            public string NuevaPassword { get; set; } = "";
+        }
+
         private static object MapearAprendiz(Aprendiz d)
         {
             return new
@@ -524,15 +537,25 @@ namespace API_healthyMind.Controllers
             return Ok("Se ha actualizado correctamente!");
         }
 
-        [Authorize(Policy = "AdministradorYAprendiz")]
+        /// <summary>
+        /// Cambia la contraseña del aprendiz autenticado. Usa el AprCodigo del token (como en PsicologoController).
+        /// </summary>
+        [Authorize(Roles = Roles.Aprendiz)]
         [HttpPut("cambiar-password")]
-        public async Task<IActionResult> CambiarPassword([FromBody] CambiarPasswordDTO dto)
+        public async Task<IActionResult> CambiarPassword([FromBody] CambiarPasswordAprendizDTO dto)
         {
-            var APR = await _uow.Aprendiz.ObtenerTodoConCondicion(c => c.AprNroDocumento == dto.UsuarioDocumento);
-            var resultado = APR.FirstOrDefault();
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("nameid");
+            if (string.IsNullOrWhiteSpace(userId) || !int.TryParse(userId, out var aprendizId) || aprendizId <= 0)
+                return Forbid();
+
+            if (dto == null || string.IsNullOrWhiteSpace(dto.PasswordActual) || string.IsNullOrWhiteSpace(dto.PasswordNueva))
+                return BadRequest("Se requieren PasswordActual y PasswordNueva.");
+
+            var aprendiz = await _uow.Aprendiz.ObtenerTodoConCondicion(c => c.AprCodigo == aprendizId);
+            var resultado = aprendiz.FirstOrDefault();
 
             if (resultado == null)
-                return NotFound("El psicólogo no existe");
+                return NotFound("El aprendiz no existe");
 
             // Verificar contraseña actual con BCrypt
             bool esCorrecta = BCrypt.Net.BCrypt.Verify(dto.PasswordActual, resultado.AprPassword);
@@ -549,6 +572,10 @@ namespace API_healthyMind.Controllers
             return Ok("Contraseña actualizada correctamente");
         }
 
+        /// <summary>
+        /// Envía un código de verificación al correo (misma lógica que PsicologoController).
+        /// Devuelve aprendizId para usarlo en reset-password.
+        /// </summary>
         [AllowAnonymous]
         [HttpPost("recuperar-password")]
         public async Task<IActionResult> RecuperarPassword([FromBody] SolicitarRecuperacionDTO dto)
@@ -563,34 +590,63 @@ namespace API_healthyMind.Controllers
             if (usuario == null)
                 return NotFound("No existe un aprendiz con ese correo.");
 
-            // Crear JWT temporal
-            var token = JwtPasswordHelper.GenerarToken(usuario.AprNroDocumento, "aprendiz");
+            // Eliminar códigos anteriores (igual que Psicologo)
+            var anteriores = await _uow.VerificationCode.ObtenerTodoConCondicion(v => v.AprendizId == usuario.AprCodigo);
+            foreach (var item in anteriores)
+                _uow.VerificationCode.Eliminar(item);
 
-            var link = $"{token}";
+            var code = new Random().Next(100000, 999999).ToString();
+            var v = new VerificationCode
+            {
+                AprendizId = usuario.AprCodigo,
+                Codigo = code,
+                Expiration = DateTime.UtcNow.AddMinutes(10)
+            };
 
-            await _emailService.SendAsync(dto.Correo, "Recuperación de contraseña", $"Copia este Token: {link}");
+            await _uow.VerificationCode.Agregar(v);
+            await _uow.SaveChangesAsync();
 
-            return Ok("Se envió un enlace de recuperación al correo.");
+            await _emailService.SendAsync(dto.Correo, "Recuperación de contraseña", $"Tu código de verificación es: {code}");
+
+            return Ok(new
+            {
+                mensaje = "Se envió un código de verificación al correo.",
+                aprendizId = usuario.AprCodigo
+            });
         }
 
+        /// <summary>
+        /// Restablece la contraseña con código de verificación (misma lógica que PsicologoController).
+        /// Requiere aprendizId (del paso recuperar-password), Codigo y NuevaPassword.
+        /// </summary>
         [AllowAnonymous]
         [HttpPost("reset-password")]
-        public async Task<IActionResult> ResetPassword([FromBody] ResetearPasswordDTO dto)
+        public async Task<IActionResult> ResetPassword([FromBody] ResetearPasswordAprendizDTO dto)
         {
-            var datosToken = JwtPasswordHelper.ValidarToken(dto.Token);
+            if (dto.AprendizId <= 0)
+                return BadRequest("AprendizId inválido.");
 
-            if (datosToken == null)
-                return BadRequest("Token inválido o expirado.");
-
-            // Obtener aprendiz por documento del token
             var aprendiz = (await _uow.Aprendiz.ObtenerTodoConCondicion(
-                                a => a.AprNroDocumento == datosToken.Documento)).FirstOrDefault();
+                                a => a.AprCodigo == dto.AprendizId)).FirstOrDefault();
 
             if (aprendiz == null)
                 return NotFound("El aprendiz no existe.");
 
             if (aprendiz.AprEstadoRegistro != "activo")
                 return BadRequest("El aprendiz está inactivo, no es posible cambiar la contraseña.");
+
+            var registro = await _uow.VerificationCode.ObtenerTodoConCondicion(v =>
+                v.AprendizId == dto.AprendizId &&
+                v.Codigo == dto.Codigo &&
+                v.Expiration > DateTime.UtcNow);
+
+            if (!registro.Any())
+                return BadRequest("Código inválido o expirado.");
+
+            // Eliminar códigos usados (igual que Psicologo)
+            var anteriores = await _uow.VerificationCode.ObtenerTodoConCondicion(v => v.AprendizId == aprendiz.AprCodigo);
+            foreach (var item in anteriores)
+                _uow.VerificationCode.Eliminar(item);
 
             // Actualizar contraseña
             aprendiz.AprPassword = BCrypt.Net.BCrypt.HashPassword(dto.NuevaPassword);

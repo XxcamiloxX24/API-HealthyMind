@@ -832,6 +832,48 @@ namespace API_healthyMind.Controllers
             return Ok(resultado);
         }
 
+        /// <summary>
+        /// Citas del psicólogo para iniciar conversación: cualquier estado excepto realizadas/completadas.
+        /// GET api/Citas/citas-para-nuevo-chat
+        /// </summary>
+        [Authorize(Roles = Roles.Psicologo)]
+        [HttpGet("citas-para-nuevo-chat")]
+        public async Task<IActionResult> ObtenerCitasParaNuevoChat()
+        {
+            if (!TryObtenerPsicologoIdAutenticado(out var psicologoId))
+            {
+                return Forbid();
+            }
+
+            var estadosExcluidos = new[] { EstadoRealizada, "completada" };
+
+            var datos = await _uow.Citas.Query()
+                .Include(c => c.CitAprCodFkNavigation)
+                    .ThenInclude(c => c.Aprendiz)
+                        .ThenInclude(c => c.Municipio)
+                            .ThenInclude(c => c.Regional)
+                .Include(c => c.CitAprCodFkNavigation.Aprendiz.EstadoAprendiz)
+                .Include(c => c.CitAprCodFkNavigation.Ficha)
+                    .ThenInclude(c => c.programaFormacion)
+                        .ThenInclude(c => c.Centro)
+                .Include(c => c.CitAprCodFkNavigation.Ficha)
+                    .ThenInclude(c => c.programaFormacion)
+                        .ThenInclude(c => c.NivelFormacion)
+                .Include(c => c.CitAprCodFkNavigation.Ficha)
+                    .ThenInclude(c => c.programaFormacion)
+                        .ThenInclude(c => c.Area)
+                .Include(c => c.CitPsiCodFkNavigation)
+                .Where(c => c.CitEstadoRegistro == "activo" &&
+                            c.CitPsiCodFk == psicologoId &&
+                            c.CitEstadoCita != null &&
+                            !estadosExcluidos.Contains(c.CitEstadoCita.Trim().ToLower()))
+                .OrderByDescending(c => c.CitFechaCreacion)
+                .ToListAsync();
+
+            var resultado = datos.Select(c => MapearCita(c));
+            return Ok(resultado);
+        }
+
         [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPost]
         public async Task<IActionResult> CrearRegistro(CitaDTO dto)

@@ -1,4 +1,4 @@
-﻿using API_healthyMind.Data;
+using API_healthyMind.Data;
 using API_healthyMind.Models;
 using API_healthyMind.Models.DTO;
 using Microsoft.AspNetCore.Authorization;
@@ -32,7 +32,7 @@ namespace API_healthyMind.Controllers
                 c.CenCodigo,
                 c.CenNombre,
                 c.CenDireccion,
-                Regional = new
+                Regional = c.Regional == null ? null : new
                 {
                     c.Regional.RegCodigo,
                     c.Regional.RegNombre
@@ -52,7 +52,7 @@ namespace API_healthyMind.Controllers
                 c.CenCodigo,
                 c.CenNombre,
                 c.CenDireccion,
-                Regional = new
+                Regional = c.Regional == null ? null : new
                 {
                     c.Regional.RegCodigo,
                     c.Regional.RegNombre
@@ -65,9 +65,9 @@ namespace API_healthyMind.Controllers
         [HttpGet("nodos")]
         public async Task<IActionResult> obtenerPorNodos(int id)
         {
-            if (id.ToString() == "")
+            if (id <= 0)
             {
-                return BadRequest("El campo id no debe estar vacio!");
+                return BadRequest("El campo id no debe estar vacío!");
             }
             var regObtenidos = await _uow.Centro.ObtenerTodoConCondicion(c => c.CenCodFk == id, 
                 c=> c.Include(x => x.InverseCenCodFkNavigation),
@@ -86,7 +86,7 @@ namespace API_healthyMind.Controllers
                 c.CenCodigo,
                 c.CenNombre,
                 c.CenDireccion,
-                Regional = new
+                Regional = c.Regional == null ? null : new
                 {
                     c.Regional.RegCodigo,
                     c.Regional.RegNombre
@@ -192,7 +192,7 @@ namespace API_healthyMind.Controllers
         public async Task<IActionResult> EliminarCentro(int id)
         {
             var centroEncontrado = await _uow.Centro.ObtenerPorID(id);
-            if (centroEncontrado.CenEstadoRegistro == "inactivo" || centroEncontrado == null)
+            if (centroEncontrado == null || centroEncontrado.CenEstadoRegistro == "inactivo")
             {
                 return NotFound("No se encontró este ID");
             }
