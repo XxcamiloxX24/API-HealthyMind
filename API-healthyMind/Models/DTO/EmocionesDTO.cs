@@ -1,17 +1,12 @@
-﻿namespace API_healthyMind.Models.DTO
+namespace API_healthyMind.Models.DTO
 {
     public class EmocionesDTO
     {
         public string? EmoNombre { get; set; }
-
-        /// <summary>
-        /// descripcion de la emocion
-        /// </summary>
+        public string? EmoEmoji { get; set; }
+        public int? EmoEscala { get; set; }
+        public string? EmoColorFondo { get; set; }
         public string? EmoDescripcion { get; set; }
-
-        /// <summary>
-        /// url de la imagen de la emocion
-        /// </summary>
         public string? EmoImage { get; set; }
     }
 }

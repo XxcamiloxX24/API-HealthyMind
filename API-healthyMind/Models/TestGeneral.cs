@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
@@ -18,6 +18,11 @@ public partial class TestGeneral
 
     public string? TestGenRecomendacion { get; set; }
 
+    public int? TestGenPlantillaFk { get; set; }
+
+    /// <summary>asignado, en_progreso, completado</summary>
+    public string? TestGenEstadoTest { get; set; }
+
     [JsonIgnore]
     public string? TestGenEstado { get; set; }
 
@@ -28,5 +33,11 @@ public partial class TestGeneral
     public virtual Psicologo? TestGenPsicoFkNavigation { get; set; }
 
     [JsonIgnore]
+    public virtual PlantillaTest? TestGenPlantillaFkNavigation { get; set; }
+
+    [JsonIgnore]
     public virtual ICollection<TestPreguntas> TestPregunta { get; set; } = new List<TestPreguntas>();
+
+    [JsonIgnore]
+    public virtual ICollection<TestRespuesta> TestRespuestas { get; set; } = new List<TestRespuesta>();
 }

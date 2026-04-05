@@ -446,6 +446,61 @@ namespace API_healthyMind.Controllers
 
             return Ok("Se ha eliminado correctamente!");
         }
+
+        /// <summary>
+        /// Citas y seguimientos por mes (últimos N meses) para el psicólogo. Usado en el dashboard (gráfica Actividad mensual).
+        /// </summary>
+        [Authorize(Policy = "AdministradorYPsicologo")]
+        [HttpGet("estadistica/actividad-mensual")]
+        public async Task<IActionResult> GetActividadMensual([FromQuery] int psicologoCodigo, [FromQuery] int meses = 6)
+        {
+            if (psicologoCodigo <= 0)
+                return BadRequest("psicologoCodigo debe ser mayor a 0.");
+            if (meses < 1 || meses > 24)
+                meses = 6;
+
+            var citasPorMes = await _uow.Citas.Query()
+                .AsNoTracking()
+                .Where(c => c.CitEstadoRegistro == "activo" &&
+                            c.CitPsiCodFk == psicologoCodigo &&
+                            c.CitFechaProgramada != null)
+                .GroupBy(c => new { Año = c.CitFechaProgramada!.Value.Year, Mes = c.CitFechaProgramada!.Value.Month })
+                .Select(g => new { g.Key.Año, g.Key.Mes, Total = g.Count() })
+                .ToListAsync();
+
+            var segPorMes = await _uow.SeguimientoAprendiz.Query()
+                .AsNoTracking()
+                .Where(s => s.SegEstadoRegistro == "activo" &&
+                            s.SegPsicologoFk == psicologoCodigo &&
+                            s.SegFechaSeguimiento != null)
+                .GroupBy(s => new { Año = s.SegFechaSeguimiento!.Value.Year, Mes = s.SegFechaSeguimiento!.Value.Month })
+                .Select(g => new { g.Key.Año, g.Key.Mes, Total = g.Count() })
+                .ToListAsync();
+
+            var nombres = new[] { "", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic" };
+            var hoy = DateTime.Today;
+            var datos = new List<object>();
+
+            for (var i = meses - 1; i >= 0; i--)
+            {
+                var d = hoy.AddMonths(-i);
+                var y = d.Year;
+                var m = d.Month;
+                var c = citasPorMes.FirstOrDefault(x => x.Año == y && x.Mes == m)?.Total ?? 0;
+                var s = segPorMes.FirstOrDefault(x => x.Año == y && x.Mes == m)?.Total ?? 0;
+                datos.Add(new
+                {
+                    mes = nombres[m],
+                    anio = y,
+                    mesNumero = m,
+                    citas = c,
+                    seguimientos = s,
+                    mensajes = 0
+                });
+            }
+
+            return Ok(new { psicologoCodigo, meses, datos });
+        }
         
     }
 }

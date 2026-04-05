@@ -7,12 +7,17 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace API_healthyMind.Controllers
 {
+    /// <summary>
+    /// Alias sin la palabra "Test" en la ruta: algunos bloqueadores alteran URLs que contienen "TestGeneral".
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
+    [Route("api/evaluaciones-hm")]
     [Authorize(Policy = "CualquierRol")]
     public class TestGeneralController : ControllerBase
     {
@@ -399,6 +404,234 @@ namespace API_healthyMind.Controllers
             await _uow.SaveChangesAsync();
 
             return Ok("Se ha eliminado correctamente!");
+        }
+
+        /* ─────────── Helpers de autenticación ─────────── */
+
+        private bool TryObtenerPsicologoIdAutenticado(out int psicologoId)
+        {
+            psicologoId = 0;
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("nameid");
+            return !string.IsNullOrWhiteSpace(userId) && int.TryParse(userId, out psicologoId);
+        }
+
+        private bool TryObtenerAprendizIdAutenticado(out int aprendizId)
+        {
+            aprendizId = 0;
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("nameid");
+            return !string.IsNullOrWhiteSpace(userId) && int.TryParse(userId, out aprendizId);
+        }
+
+        /* ─────────── Asignar test a un aprendiz ─────────── */
+
+        /// <summary>Psicólogo asigna una plantilla de test a un aprendiz.</summary>
+        [Authorize(Policy = "AdministradorYPsicologo")]
+        [HttpPost("asignar")]
+        public async Task<IActionResult> AsignarTest([FromBody] AsignarTestDTO dto)
+        {
+            if (!TryObtenerPsicologoIdAutenticado(out var psicologoId))
+                return Forbid();
+
+            var plantilla = await _uow.PlantillaTest.ObtenerPrimero(p => p.PlaTstCodigo == dto.PlantillaId && p.PlaTstEstadoRegistro == "activo");
+            if (plantilla == null)
+                return NotFound(new { message = "Plantilla no encontrada." });
+
+            var aprFicha = await _uow.AprendizFicha.ObtenerPrimero(a => a.AprFicCodigo == dto.AprendizFichaId);
+            if (aprFicha == null)
+                return NotFound(new { message = "Aprendiz-ficha no encontrado." });
+
+            var test = new TestGeneral
+            {
+                TestGenApreFk = dto.AprendizFichaId,
+                TestGenPsicoFk = psicologoId,
+                TestGenPlantillaFk = dto.PlantillaId,
+                TestGenEstadoTest = "asignado",
+                TestGenFechaRealiz = null
+            };
+
+            await _uow.TestGeneral.Agregar(test);
+            await _uow.SaveChangesAsync();
+
+            return Ok(new { message = "Test asignado correctamente.", testId = test.TestGenCodigo });
+        }
+
+        /* ─────────── Tests de un aprendiz (vista psicólogo) ─────────── */
+
+        /// <summary>Lista los tests asignados a un aprendiz (vista psicólogo).</summary>
+        [Authorize(Policy = "AdministradorYPsicologo")]
+        [HttpGet("por-aprendiz/{aprendizFichaId}")]
+        public async Task<IActionResult> TestsPorAprendiz(int aprendizFichaId)
+        {
+            var datos = await _uow.TestGeneral.Query()
+                .Where(t => t.TestGenEstado == "activo" && t.TestGenApreFk == aprendizFichaId && t.TestGenPlantillaFk != null)
+                .Include(t => t.TestGenPlantillaFkNavigation)
+                .Include(t => t.TestRespuestas.Where(r => r.TesResEstadoRegistro == "activo"))
+                    .ThenInclude(r => r.TesResPreguntaFkNavigation)
+                .Include(t => t.TestRespuestas.Where(r => r.TesResEstadoRegistro == "activo"))
+                    .ThenInclude(r => r.TesResOpcionFkNavigation)
+                .OrderByDescending(t => t.TestGenFechaRealiz ?? DateTime.MinValue)
+                .ToListAsync();
+
+            var resultados = datos.Select(t => new
+            {
+                t.TestGenCodigo,
+                PlantillaNombre = t.TestGenPlantillaFkNavigation?.PlaTstNombre,
+                PlantillaDescripcion = t.TestGenPlantillaFkNavigation?.PlaTstDescripcion,
+                t.TestGenEstadoTest,
+                FechaRealizacion = t.TestGenFechaRealiz,
+                Resultados = t.TestGenResultados,
+                Recomendaciones = t.TestGenRecomendacion,
+                Respuestas = t.TestRespuestas.Select(r => new
+                {
+                    PreguntaId = r.TesResPreguntaFk,
+                    PreguntaTexto = r.TesResPreguntaFkNavigation?.PlaPrgTexto,
+                    OpcionId = r.TesResOpcionFk,
+                    OpcionTexto = r.TesResOpcionFkNavigation?.PlaOpcTexto,
+                    r.TesResFechaRespuesta
+                })
+            });
+
+            return Ok(resultados);
+        }
+
+        /* ─────────── Endpoints para el aprendiz ─────────── */
+
+        /// <summary>Tests asignados al aprendiz autenticado.</summary>
+        [Authorize(Roles = Roles.Aprendiz)]
+        [HttpGet("mis-tests")]
+        public async Task<IActionResult> MisTests()
+        {
+            if (!TryObtenerAprendizIdAutenticado(out var aprendizId))
+                return Forbid();
+
+            var fichas = await _uow.AprendizFicha.Query()
+                .Where(af => af.AprFicAprendizFk == aprendizId)
+                .Select(af => af.AprFicCodigo)
+                .ToListAsync();
+
+            if (!fichas.Any())
+                return Ok(Array.Empty<object>());
+
+            var datos = await _uow.TestGeneral.Query()
+                .Where(t => t.TestGenEstado == "activo"
+                    && t.TestGenPlantillaFk != null
+                    && fichas.Contains(t.TestGenApreFk ?? 0))
+                .Include(t => t.TestGenPlantillaFkNavigation)
+                .Include(t => t.TestGenPsicoFkNavigation)
+                .OrderByDescending(t => t.TestGenCodigo)
+                .ToListAsync();
+
+            return Ok(datos.Select(t => new
+            {
+                t.TestGenCodigo,
+                PlantillaNombre = t.TestGenPlantillaFkNavigation?.PlaTstNombre,
+                PlantillaDescripcion = t.TestGenPlantillaFkNavigation?.PlaTstDescripcion,
+                t.TestGenEstadoTest,
+                FechaRealizacion = t.TestGenFechaRealiz,
+                Psicologo = t.TestGenPsicoFkNavigation == null ? null : new
+                {
+                    t.TestGenPsicoFkNavigation.PsiCodigo,
+                    t.TestGenPsicoFkNavigation.PsiNombre,
+                    t.TestGenPsicoFkNavigation.PsiApellido
+                }
+            }));
+        }
+
+        /// <summary>Preguntas y opciones del test para que el aprendiz responda.</summary>
+        [Authorize(Roles = Roles.Aprendiz)]
+        [HttpGet("mis-tests/{id}/preguntas")]
+        public async Task<IActionResult> PreguntasDelTest(int id)
+        {
+            if (!TryObtenerAprendizIdAutenticado(out var aprendizId))
+                return Forbid();
+
+            var fichas = await _uow.AprendizFicha.Query()
+                .Where(af => af.AprFicAprendizFk == aprendizId)
+                .Select(af => af.AprFicCodigo)
+                .ToListAsync();
+
+            var test = await _uow.TestGeneral.Query()
+                .Where(t => t.TestGenCodigo == id && t.TestGenEstado == "activo" && fichas.Contains(t.TestGenApreFk ?? 0))
+                .Include(t => t.TestGenPlantillaFkNavigation)
+                    .ThenInclude(p => p!.Preguntas.Where(q => q.PlaPrgEstadoRegistro == "activo"))
+                        .ThenInclude(q => q.Opciones.Where(o => o.PlaOpcEstadoRegistro == "activo"))
+                .FirstOrDefaultAsync();
+
+            if (test == null)
+                return NotFound(new { message = "Test no encontrado." });
+
+            var plantilla = test.TestGenPlantillaFkNavigation;
+            if (plantilla == null)
+                return NotFound(new { message = "Plantilla asociada no encontrada." });
+
+            return Ok(new
+            {
+                test.TestGenCodigo,
+                test.TestGenEstadoTest,
+                PlantillaNombre = plantilla.PlaTstNombre,
+                Preguntas = plantilla.Preguntas
+                    .OrderBy(q => q.PlaPrgOrden)
+                    .Select(q => new
+                    {
+                        q.PlaPrgCodigo,
+                        q.PlaPrgTexto,
+                        q.PlaPrgTipo,
+                        q.PlaPrgOrden,
+                        Opciones = q.Opciones.OrderBy(o => o.PlaOpcOrden).Select(o => new
+                        {
+                            o.PlaOpcCodigo,
+                            o.PlaOpcTexto,
+                            o.PlaOpcOrden
+                        })
+                    })
+            });
+        }
+
+        /// <summary>El aprendiz envía sus respuestas.</summary>
+        [Authorize(Roles = Roles.Aprendiz)]
+        [HttpPost("mis-tests/{id}/responder")]
+        public async Task<IActionResult> ResponderTest(int id, [FromBody] ResponderTestDTO dto)
+        {
+            if (!TryObtenerAprendizIdAutenticado(out var aprendizId))
+                return Forbid();
+
+            var fichas = await _uow.AprendizFicha.Query()
+                .Where(af => af.AprFicAprendizFk == aprendizId)
+                .Select(af => af.AprFicCodigo)
+                .ToListAsync();
+
+            var test = await _uow.TestGeneral.ObtenerPrimero(
+                t => t.TestGenCodigo == id && t.TestGenEstado == "activo" && fichas.Contains(t.TestGenApreFk ?? 0));
+
+            if (test == null)
+                return NotFound(new { message = "Test no encontrado." });
+
+            if (test.TestGenEstadoTest == "completado")
+                return BadRequest(new { message = "Este test ya fue completado." });
+
+            if (dto.Respuestas == null || !dto.Respuestas.Any())
+                return BadRequest(new { message = "Debe enviar al menos una respuesta." });
+
+            var ctx = _uow.ObtenerContexto();
+
+            foreach (var item in dto.Respuestas)
+            {
+                await ctx.TestRespuestas.AddAsync(new TestRespuesta
+                {
+                    TesResTestFk = id,
+                    TesResPreguntaFk = item.PreguntaId,
+                    TesResOpcionFk = item.OpcionId,
+                    TesResFechaRespuesta = DateTime.UtcNow
+                });
+            }
+
+            test.TestGenEstadoTest = "completado";
+            test.TestGenFechaRealiz = DateTime.UtcNow;
+            _uow.TestGeneral.Actualizar(test);
+
+            await _uow.SaveChangesAsync();
+
+            return Ok(new { message = "Respuestas registradas correctamente." });
         }
         
     }

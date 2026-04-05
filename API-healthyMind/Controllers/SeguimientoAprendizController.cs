@@ -13,7 +13,6 @@ namespace API_healthyMind.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Policy = "AdministradorYPsicologo")]
     public class SeguimientoAprendizController : ControllerBase
     {
         private readonly IUnidadDeTrabajo _uow;
@@ -129,12 +128,14 @@ namespace API_healthyMind.Controllers
 
 
         /// <summary>Devuelve los valores válidos para el campo estado de seguimiento (para dropdowns).</summary>
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("estados")]
         public IActionResult ObtenerEstadosSeguimiento()
         {
             return Ok(EstadosSeguimiento.Todos.Select(e => new { valor = e }));
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet]
         public async Task<IActionResult> ObtenerTodos()
         {
@@ -188,6 +189,7 @@ namespace API_healthyMind.Controllers
             return Ok(resultados);
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("listar")]
         public async Task<IActionResult> ListarSeguimientos([FromQuery] PaginacionDTO p)
         {
@@ -325,6 +327,7 @@ namespace API_healthyMind.Controllers
         /// <summary>
         /// Obtiene un seguimiento por ID. Administrador ve cualquier; Psicólogo solo los suyos.
         /// </summary>
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("{id:int}")]
         public async Task<IActionResult> ObtenerPorId(int id)
         {
@@ -381,6 +384,7 @@ namespace API_healthyMind.Controllers
             return Ok(resultado);
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("buscar")]
         public async Task<IActionResult> Buscar([FromQuery] FiltroAprendizFichaDTO f)
         {
@@ -509,6 +513,7 @@ namespace API_healthyMind.Controllers
 
 
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("estadistica/por-mes-inicio")]
         public async Task<IActionResult> GetSeguimientosIniciadosPorMes()
         {
@@ -532,6 +537,7 @@ namespace API_healthyMind.Controllers
             return Ok(resultado);
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("estadistica/tendencia-estado")]
         public async Task<IActionResult> GetTendenciaSeguimientosPorEstado(
             [FromQuery] int? psicologoId,
@@ -652,6 +658,7 @@ namespace API_healthyMind.Controllers
             });
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("estadistica/por-mes-fin")]
         public async Task<IActionResult> GetSeguimientosFinalizadosPorMes()
         {
@@ -675,6 +682,7 @@ namespace API_healthyMind.Controllers
             return Ok(resultado);
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("estadistica/por-dia-inicio")]
         public async Task<IActionResult> GetSeguimientosIniciadosPorDia()
         {
@@ -701,6 +709,7 @@ namespace API_healthyMind.Controllers
             return Ok(resultado);
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("estadistica/por-dia-fin")]
         public async Task<IActionResult> GetSeguimientosFinalizadosPorDia()
         {
@@ -729,6 +738,7 @@ namespace API_healthyMind.Controllers
 
 
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPost]
         public async Task<IActionResult> CrearRegistro(SeguimientoAprendizDTO dto)
         {
@@ -767,6 +777,7 @@ namespace API_healthyMind.Controllers
             });
         }
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPut("{id}")]
         public async Task<IActionResult> EditarInformacion(int id, [FromBody] SeguimientoAprendizDTO dto)
         {
@@ -811,6 +822,7 @@ namespace API_healthyMind.Controllers
         }
 
 
+        [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpPut("eliminar/{id}")]
         public async Task<IActionResult> EliminarRegistro(int id)
         {
@@ -828,5 +840,116 @@ namespace API_healthyMind.Controllers
 
         }
 
+        /* ─────────── Helpers aprendiz ─────────── */
+
+        private bool TryObtenerAprendizIdAutenticado(out int aprendizId)
+        {
+            aprendizId = 0;
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("nameid");
+            return !string.IsNullOrWhiteSpace(userId) && int.TryParse(userId, out aprendizId);
+        }
+
+        /* ─────────── Endpoints para el aprendiz ─────────── */
+
+        /// <summary>Seguimiento activo del aprendiz autenticado (el más reciente).</summary>
+        [Authorize(Roles = Roles.Aprendiz)]
+        [HttpGet("mi-seguimiento")]
+        public async Task<IActionResult> MiSeguimiento()
+        {
+            if (!TryObtenerAprendizIdAutenticado(out var aprendizId))
+                return Forbid();
+
+            // Usar AprFicAprendizFk (FK directa) evita fallos si el join por navegación Aprendiz no coincide en algunos datos.
+            var tieneFicha = await _uow.ObtenerContexto().AprendizFichas
+                .AnyAsync(af => af.AprFicAprendizFk == aprendizId);
+
+            if (!tieneFicha)
+                return Ok(new { seguimiento = (object?)null });
+
+            var seg = await _uow.SeguimientoAprendiz.Query()
+                .Where(s => s.SegEstadoRegistro == "activo"
+                    && s.SegAprendizFk != null
+                    && s.SegAprendizFkNavigation != null
+                    && s.SegAprendizFkNavigation.AprFicAprendizFk == aprendizId)
+                .Include(s => s.SegPsicologoFkNavigation)
+                .Include(s => s.Recomendaciones.Where(r => r.RecEstadoRegistro == "activo"))
+                .OrderByDescending(s => s.SegFechaSeguimiento)
+                .FirstOrDefaultAsync();
+
+            if (seg == null)
+                return Ok(new { seguimiento = (object?)null });
+
+            return Ok(new
+            {
+                seguimiento = new
+                {
+                    seg.SegCodigo,
+                    seg.SegEstadoSeguimiento,
+                    FechaInicio = seg.SegFechaSeguimiento,
+                    FechaFin = seg.SegFechaFin,
+                    seg.SegAreaRemitido,
+                    seg.SegTrimestreActual,
+                    seg.SegMotivo,
+                    seg.SegDescripcion,
+                    seg.SegFirmaProfesional,
+                    seg.SegFirmaAprendiz,
+                    Psicologo = seg.SegPsicologoFkNavigation == null ? null : new
+                    {
+                        seg.SegPsicologoFkNavigation.PsiCodigo,
+                        seg.SegPsicologoFkNavigation.PsiNombre,
+                        seg.SegPsicologoFkNavigation.PsiApellido
+                    },
+                    Recomendaciones = seg.Recomendaciones
+                        .OrderByDescending(r => r.RecFechaCreacion)
+                        .Select(r => new
+                        {
+                            r.RecCodigo,
+                            r.RecTitulo,
+                            r.RecDescripcion,
+                            r.RecEstado,
+                            r.RecFechaVencimiento,
+                            r.RecFechaCreacion
+                        })
+                }
+            });
+        }
+
+        /// <summary>El aprendiz sube su firma (base64 o URL de imagen).</summary>
+        [Authorize(Roles = Roles.Aprendiz)]
+        [HttpPut("firmar-aprendiz/{id}")]
+        public async Task<IActionResult> FirmarAprendiz(int id, [FromBody] FirmaAprendizDTO dto)
+        {
+            if (!TryObtenerAprendizIdAutenticado(out var aprendizId))
+                return Forbid();
+
+            var seg = await _uow.SeguimientoAprendiz.Query()
+                .Where(s => s.SegCodigo == id
+                    && s.SegEstadoRegistro == "activo"
+                    && s.SegAprendizFk != null
+                    && s.SegAprendizFkNavigation != null
+                    && s.SegAprendizFkNavigation.AprFicAprendizFk == aprendizId)
+                .FirstOrDefaultAsync();
+
+            if (seg == null)
+                return NotFound(new { message = "Seguimiento no encontrado." });
+
+            if (string.IsNullOrWhiteSpace(dto.Firma))
+                return BadRequest(new { message = "La firma es obligatoria." });
+
+            seg.SegFirmaAprendiz = dto.Firma.Trim();
+            _uow.SeguimientoAprendiz.Actualizar(seg);
+            await _uow.SaveChangesAsync();
+
+            return Ok(new { message = "Firma registrada correctamente." });
+        }
+
+    }
+}
+
+namespace API_healthyMind.Models.DTO
+{
+    public class FirmaAprendizDTO
+    {
+        public string? Firma { get; set; }
     }
 }

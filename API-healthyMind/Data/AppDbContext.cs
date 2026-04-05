@@ -71,6 +71,14 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<Recomendacion> Recomendacions { get; set; }
 
+    public virtual DbSet<PlantillaTest> PlantillaTests { get; set; }
+
+    public virtual DbSet<PlantillaPregunta> PlantillaPreguntas { get; set; }
+
+    public virtual DbSet<PlantillaOpcion> PlantillaOpciones { get; set; }
+
+    public virtual DbSet<TestRespuesta> TestRespuestas { get; set; }
+
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -501,10 +509,26 @@ public partial class AppDbContext : DbContext
 
             entity.ToTable("emociones");
 
+            entity.Ignore(e => e.Categoria);
+
             entity.Property(e => e.EmoCodigo)
                 .HasComment("identificador de la emocion")
                 .HasColumnType("int(40)")
                 .HasColumnName("emo_codigo");
+            entity.Property(e => e.EmoNombre)
+                .HasMaxLength(100)
+                .HasComment("nombre de la emocion")
+                .HasColumnName("emo_nombre");
+            entity.Property(e => e.EmoEmoji)
+                .HasMaxLength(10)
+                .HasColumnName("emo_emoji");
+            entity.Property(e => e.EmoEscala)
+                .HasColumnType("int(2)")
+                .HasDefaultValue(5)
+                .HasColumnName("emo_escala");
+            entity.Property(e => e.EmoColorFondo)
+                .HasMaxLength(10)
+                .HasColumnName("emo_color_fondo");
             entity.Property(e => e.EmoDescripcion)
                 .HasMaxLength(100)
                 .HasComment("descripcion de la emocion")
@@ -513,10 +537,10 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(100)
                 .HasComment("url de la imagen de la emocion")
                 .HasColumnName("emo_image");
-            entity.Property(e => e.EmoNombre)
-                .HasMaxLength(100)
-                .HasComment("nombre de la emocion")
-                .HasColumnName("emo_nombre");
+            entity.Property(e => e.EmoEstadoRegistro)
+                .HasDefaultValueSql("'activo'")
+                .HasColumnType("enum('activo','inactivo')")
+                .HasColumnName("emo_estado_registro");
         });
 
         modelBuilder.Entity<EstadoAprendiz>(entity =>
@@ -1010,6 +1034,19 @@ public partial class AppDbContext : DbContext
                 .HasForeignKey(d => d.TestGenPsicoFk)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("test_general_ibfk_2");
+
+            entity.Property(e => e.TestGenPlantillaFk)
+                .HasColumnType("int")
+                .HasColumnName("test_gen_plantilla_fk");
+            entity.Property(e => e.TestGenEstadoTest)
+                .HasMaxLength(30)
+                .HasDefaultValueSql("'asignado'")
+                .HasColumnName("test_gen_estado_test");
+            entity.HasIndex(e => e.TestGenPlantillaFk, "test_gen_plantillaFK");
+            entity.HasOne(d => d.TestGenPlantillaFkNavigation).WithMany(p => p.TestGenerales)
+                .HasForeignKey(d => d.TestGenPlantillaFk)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("test_general_ibfk_3");
         });
 
         modelBuilder.Entity<TestPreguntas>(entity =>
@@ -1106,6 +1143,92 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.RephDescripcion).HasMaxLength(500).HasColumnName("reph_descripcion");
             entity.Property(e => e.RephFecha).HasColumnType("datetime").HasColumnName("reph_fecha");
             entity.HasOne(d => d.RephReporteFkNavigation).WithMany(p => p.ReporteHistorials).HasForeignKey(d => d.RephReporteFk).OnDelete(DeleteBehavior.Cascade).HasConstraintName("fk_reph_reporte");
+        });
+
+        modelBuilder.Entity<PlantillaTest>(entity =>
+        {
+            entity.HasKey(e => e.PlaTstCodigo).HasName("PRIMARY");
+            entity.ToTable("plantilla_test");
+
+            entity.Property(e => e.PlaTstCodigo).HasColumnType("int").HasColumnName("pla_tst_codigo");
+            entity.Property(e => e.PlaTstNombre).HasMaxLength(255).HasColumnName("pla_tst_nombre");
+            entity.Property(e => e.PlaTstDescripcion).HasColumnType("text").HasColumnName("pla_tst_descripcion");
+            entity.Property(e => e.PlaTstPsicologoFk).HasColumnType("int").HasColumnName("pla_tst_psicologo_fk");
+            entity.Property(e => e.PlaTstEstadoRegistro).HasMaxLength(20).HasDefaultValueSql("'activo'").HasColumnName("pla_tst_estado_registro");
+            entity.Property(e => e.PlaTstFechaCreacion).HasColumnType("datetime").HasColumnName("pla_tst_fecha_creacion");
+
+            entity.HasIndex(e => e.PlaTstPsicologoFk, "pla_tst_psicologoFK");
+            entity.HasOne(d => d.PlaTstPsicologoFkNavigation).WithMany()
+                .HasForeignKey(d => d.PlaTstPsicologoFk)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("plantilla_test_ibfk_1");
+        });
+
+        modelBuilder.Entity<PlantillaPregunta>(entity =>
+        {
+            entity.HasKey(e => e.PlaPrgCodigo).HasName("PRIMARY");
+            entity.ToTable("plantilla_pregunta");
+
+            entity.Property(e => e.PlaPrgCodigo).HasColumnType("int").HasColumnName("pla_prg_codigo");
+            entity.Property(e => e.PlaPrgPlantillaFk).HasColumnType("int").HasColumnName("pla_prg_plantilla_fk");
+            entity.Property(e => e.PlaPrgTexto).HasColumnType("text").HasColumnName("pla_prg_texto");
+            entity.Property(e => e.PlaPrgTipo).HasMaxLength(30).HasDefaultValueSql("'opcion_multiple'").HasColumnName("pla_prg_tipo");
+            entity.Property(e => e.PlaPrgOrden).HasColumnType("int").HasColumnName("pla_prg_orden");
+            entity.Property(e => e.PlaPrgEstadoRegistro).HasMaxLength(20).HasDefaultValueSql("'activo'").HasColumnName("pla_prg_estado_registro");
+
+            entity.HasIndex(e => e.PlaPrgPlantillaFk, "pla_prg_plantillaFK");
+            entity.HasOne(d => d.PlaPrgPlantillaFkNavigation).WithMany(p => p.Preguntas)
+                .HasForeignKey(d => d.PlaPrgPlantillaFk)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("plantilla_pregunta_ibfk_1");
+        });
+
+        modelBuilder.Entity<PlantillaOpcion>(entity =>
+        {
+            entity.HasKey(e => e.PlaOpcCodigo).HasName("PRIMARY");
+            entity.ToTable("plantilla_opcion");
+
+            entity.Property(e => e.PlaOpcCodigo).HasColumnType("int").HasColumnName("pla_opc_codigo");
+            entity.Property(e => e.PlaOpcPreguntaFk).HasColumnType("int").HasColumnName("pla_opc_pregunta_fk");
+            entity.Property(e => e.PlaOpcTexto).HasMaxLength(500).HasColumnName("pla_opc_texto");
+            entity.Property(e => e.PlaOpcOrden).HasColumnType("int").HasColumnName("pla_opc_orden");
+            entity.Property(e => e.PlaOpcEstadoRegistro).HasMaxLength(20).HasDefaultValueSql("'activo'").HasColumnName("pla_opc_estado_registro");
+
+            entity.HasIndex(e => e.PlaOpcPreguntaFk, "pla_opc_preguntaFK");
+            entity.HasOne(d => d.PlaOpcPreguntaFkNavigation).WithMany(p => p.Opciones)
+                .HasForeignKey(d => d.PlaOpcPreguntaFk)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("plantilla_opcion_ibfk_1");
+        });
+
+        modelBuilder.Entity<TestRespuesta>(entity =>
+        {
+            entity.HasKey(e => e.TesResCodigo).HasName("PRIMARY");
+            entity.ToTable("test_respuesta");
+
+            entity.Property(e => e.TesResCodigo).HasColumnType("int").HasColumnName("tes_res_codigo");
+            entity.Property(e => e.TesResTestFk).HasColumnType("int").HasColumnName("tes_res_test_fk");
+            entity.Property(e => e.TesResPreguntaFk).HasColumnType("int").HasColumnName("tes_res_pregunta_fk");
+            entity.Property(e => e.TesResOpcionFk).HasColumnType("int").HasColumnName("tes_res_opcion_fk");
+            entity.Property(e => e.TesResFechaRespuesta).HasColumnType("datetime").HasColumnName("tes_res_fecha_respuesta");
+            entity.Property(e => e.TesResEstadoRegistro).HasMaxLength(20).HasDefaultValueSql("'activo'").HasColumnName("tes_res_estado_registro");
+
+            entity.HasIndex(e => e.TesResTestFk, "tes_res_testFK");
+            entity.HasIndex(e => e.TesResPreguntaFk, "tes_res_preguntaFK");
+            entity.HasIndex(e => e.TesResOpcionFk, "tes_res_opcionFK");
+
+            entity.HasOne(d => d.TesResTestFkNavigation).WithMany(p => p.TestRespuestas)
+                .HasForeignKey(d => d.TesResTestFk)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("test_respuesta_ibfk_1");
+            entity.HasOne(d => d.TesResPreguntaFkNavigation).WithMany(p => p.TestRespuestas)
+                .HasForeignKey(d => d.TesResPreguntaFk)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("test_respuesta_ibfk_2");
+            entity.HasOne(d => d.TesResOpcionFkNavigation).WithMany(p => p.TestRespuestas)
+                .HasForeignKey(d => d.TesResOpcionFk)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("test_respuesta_ibfk_3");
         });
 
         OnModelCreatingPartial(modelBuilder);

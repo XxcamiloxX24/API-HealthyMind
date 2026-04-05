@@ -10,7 +10,10 @@ public static class EstadosSeguimiento
     public const string EnObservacion = "En Observacion";
     public const string Estable = "Estables";
 
-    public static readonly string[] Todos = { Critico, EnObservacion, Estable };
+    /// <summary>Seguimiento cerrado por el psicólogo; el aprendiz debe firmar en la app.</summary>
+    public const string Completada = "Completada";
+
+    public static readonly string[] Todos = { Critico, EnObservacion, Estable, Completada };
 
     public static bool EsValido(string? estado)
     {

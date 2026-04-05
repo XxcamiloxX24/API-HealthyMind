@@ -1,4 +1,4 @@
-﻿namespace API_healthyMind.Models.DTO
+namespace API_healthyMind.Models.DTO
 {
     public class TestGeneralDTO
     {
@@ -11,5 +11,9 @@
         public string? TestGenResultados { get; set; }
 
         public string? TestGenRecomendacion { get; set; }
+
+        public int? TestGenPlantillaFk { get; set; }
+
+        public string? TestGenEstadoTest { get; set; }
     }
 }

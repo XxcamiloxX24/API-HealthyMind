@@ -347,8 +347,133 @@ namespace API_healthyMind.Controllers
             _uow.Diario.Actualizar(diario);
             await _uow.SaveChangesAsync();
             return Ok("Se ha eliminado correctamente ");
+        }
 
+        // ──────────────────────────────────────────────────
+        //  ESTADÍSTICAS EMOCIONALES
+        // ──────────────────────────────────────────────────
 
+        private static string CategoriaDeEscala(int escala) => escala switch
+        {
+            <= 2 => "Critica",
+            <= 4 => "Negativa",
+            <= 6 => "Neutral",
+            _    => "Positiva"
+        };
+
+        /// <summary>
+        /// Resumen emocional mensual de un aprendiz: lista de días con emoción y resumen de categorías.
+        /// </summary>
+        [HttpGet("estadistica/emociones-mensual")]
+        [Authorize(Policy = "AdministradorYPsicologo")]
+        public async Task<IActionResult> EstadisticaEmocionesMensual(int aprendizId, int anio, int mes)
+        {
+            if (mes < 1 || mes > 12)
+                return BadRequest("El mes debe estar entre 1 y 12.");
+
+            var inicioMes = new DateTime(anio, mes, 1);
+            var finMes = inicioMes.AddMonths(1);
+
+            var paginas = await _uow.PaginaDiario.Query()
+                .AsNoTracking()
+                .Where(p =>
+                    p.PagEstadoRegistro == "activo" &&
+                    p.PagDiarioFkNavigation != null &&
+                    p.PagDiarioFkNavigation.DiaEstadoRegistro == "activo" &&
+                    p.PagDiarioFkNavigation.DiaAprendizFk == aprendizId &&
+                    p.PagFechaRealizacion >= inicioMes &&
+                    p.PagFechaRealizacion < finMes)
+                .Include(p => p.PagEmocionFkNavigation)
+                .OrderBy(p => p.PagFechaRealizacion)
+                .ToListAsync();
+
+            var dias = paginas
+                .GroupBy(p => p.PagFechaRealizacion.Date)
+                .Select(g =>
+                {
+                    var paginasDelDia = g.Where(p => p.PagEmocionFkNavigation != null).ToList();
+                    var emocionPrincipal = paginasDelDia.FirstOrDefault()?.PagEmocionFkNavigation;
+                    var promedioEscala = paginasDelDia.Any()
+                        ? Math.Round(paginasDelDia.Average(p => p.PagEmocionFkNavigation!.EmoEscala), 1)
+                        : 0;
+                    return new
+                    {
+                        fecha = DateOnly.FromDateTime(g.Key).ToString("yyyy-MM-dd"),
+                        emocion = emocionPrincipal == null ? null : new
+                        {
+                            emocionPrincipal.EmoCodigo,
+                            emocionPrincipal.EmoNombre,
+                            emocionPrincipal.EmoEmoji,
+                            emocionPrincipal.EmoEscala,
+                            emocionPrincipal.EmoColorFondo,
+                            Categoria = CategoriaDeEscala(emocionPrincipal.EmoEscala)
+                        },
+                        promedioEscala,
+                        categoriaDia = CategoriaDeEscala((int)Math.Round(promedioEscala)),
+                        totalPaginas = g.Count()
+                    };
+                })
+                .ToList();
+
+            var conEmocion = dias.Where(d => d.emocion != null).ToList();
+            var resumen = new
+            {
+                positivas = conEmocion.Count(d => d.categoriaDia == "Positiva"),
+                neutrales = conEmocion.Count(d => d.categoriaDia == "Neutral"),
+                negativas = conEmocion.Count(d => d.categoriaDia == "Negativa"),
+                criticas = conEmocion.Count(d => d.categoriaDia == "Critica"),
+                promedioEscala = conEmocion.Any()
+                    ? Math.Round(conEmocion.Average(d => d.promedioEscala), 1)
+                    : 0,
+                totalDias = conEmocion.Count
+            };
+
+            return Ok(new { aprendizId, anio, mes, dias, resumen });
+        }
+
+        /// <summary>
+        /// Tendencia emocional: promedio de escala agrupado por mes durante los últimos N meses.
+        /// </summary>
+        [HttpGet("estadistica/tendencia-emocional")]
+        [Authorize(Policy = "AdministradorYPsicologo")]
+        public async Task<IActionResult> EstadisticaTendenciaEmocional(int aprendizId, int meses = 6)
+        {
+            if (meses < 1 || meses > 24)
+                meses = 6;
+
+            var ahora = DateTime.Now;
+            var desde = new DateTime(ahora.Year, ahora.Month, 1).AddMonths(-meses + 1);
+
+            var paginas = await _uow.PaginaDiario.Query()
+                .AsNoTracking()
+                .Where(p =>
+                    p.PagEstadoRegistro == "activo" &&
+                    p.PagDiarioFkNavigation != null &&
+                    p.PagDiarioFkNavigation.DiaEstadoRegistro == "activo" &&
+                    p.PagDiarioFkNavigation.DiaAprendizFk == aprendizId &&
+                    p.PagEmocionFk != null &&
+                    p.PagFechaRealizacion >= desde)
+                .Include(p => p.PagEmocionFkNavigation)
+                .ToListAsync();
+
+            var mesesNombres = new[] { "", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic" };
+
+            var tendencia = paginas
+                .Where(p => p.PagEmocionFkNavigation != null)
+                .GroupBy(p => new { p.PagFechaRealizacion.Year, p.PagFechaRealizacion.Month })
+                .Select(g => new
+                {
+                    anio = g.Key.Year,
+                    mes = g.Key.Month,
+                    mesNombre = mesesNombres[g.Key.Month],
+                    promedioEscala = Math.Round(g.Average(p => p.PagEmocionFkNavigation!.EmoEscala), 1),
+                    totalRegistros = g.Count(),
+                    categoria = CategoriaDeEscala((int)Math.Round(g.Average(p => p.PagEmocionFkNavigation!.EmoEscala)))
+                })
+                .OrderBy(x => x.anio).ThenBy(x => x.mes)
+                .ToList();
+
+            return Ok(new { aprendizId, mesesConsultados = meses, tendencia });
         }
 
     }

@@ -33,6 +33,10 @@ namespace API_healthyMind.Data
         public ISeguimientoAprendizRepository SeguimientoAprendiz { get; }
         public ITestGeneralRepository TestGeneral { get; }
         public ITestPreguntasRepository TestPreguntas { get; }
+        public IPlantillaTestRepository PlantillaTest { get; }
+        public IPlantillaPreguntaRepository PlantillaPregunta { get; }
+        public IPlantillaOpcionRepository PlantillaOpcion { get; }
+        public ITestRespuestaRepository TestRespuesta { get; }
 
         public UnidadDeTrabajo(AppDbContext appDbContext, IAprendizFichaRepository aprendizFicha,
             ICardsInfoRepository cardsInfo,
@@ -59,7 +63,11 @@ namespace API_healthyMind.Data
             IRespuestasRepository respuestas, 
             ISeguimientoAprendizRepository seguimientoAprendiz, 
             ITestGeneralRepository testGeneral, 
-            ITestPreguntasRepository testPreguntas)
+            ITestPreguntasRepository testPreguntas,
+            IPlantillaTestRepository plantillaTest,
+            IPlantillaPreguntaRepository plantillaPregunta,
+            IPlantillaOpcionRepository plantillaOpcion,
+            ITestRespuestaRepository testRespuesta)
         {
             _appDbContext = appDbContext;
             CardsInfo = cardsInfo;
@@ -88,6 +96,10 @@ namespace API_healthyMind.Data
             SeguimientoAprendiz = seguimientoAprendiz;
             TestGeneral = testGeneral;
             TestPreguntas = testPreguntas;
+            PlantillaTest = plantillaTest;
+            PlantillaPregunta = plantillaPregunta;
+            PlantillaOpcion = plantillaOpcion;
+            TestRespuesta = testRespuesta;
         }
 
         public void Dispose() => _appDbContext.Dispose();

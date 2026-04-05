@@ -30,6 +30,10 @@ namespace API_healthyMind.Data
         ISeguimientoAprendizRepository SeguimientoAprendiz { get; }
         ITestGeneralRepository TestGeneral {  get; }
         ITestPreguntasRepository TestPreguntas { get; }
+        IPlantillaTestRepository PlantillaTest { get; }
+        IPlantillaPreguntaRepository PlantillaPregunta { get; }
+        IPlantillaOpcionRepository PlantillaOpcion { get; }
+        ITestRespuestaRepository TestRespuesta { get; }
         AppDbContext ObtenerContexto();
         Task<int> SaveChangesAsync();
 
