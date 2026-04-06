@@ -1083,12 +1083,19 @@ namespace API_healthyMind.Controllers
             var notifMessage =
                 $"{nombreCompleto} — Ficha {datosAprendiz.Ficha.FicCodigo}. Tipo: {dto.TipoCita.Trim()}.";
 
-            await _chatPush.NotifyPsychologistAsync(
-                psicologoAsignado.PsiCodigo,
-                "CITA_SOLICITADA",
-                notifTitle,
-                notifMessage,
-                soli.CitCodigo);
+            try
+            {
+                await _chatPush.NotifyPsychologistAsync(
+                    psicologoAsignado.PsiCodigo,
+                    "CITA_SOLICITADA",
+                    notifTitle,
+                    notifMessage,
+                    soli.CitCodigo);
+            }
+            catch (Exception exPush)
+            {
+                _ = exPush;
+            }
 
             var correoInstitucional = psicologoAsignado.PsiCorreoInstitucional?.Trim();
             if (!string.IsNullOrEmpty(correoInstitucional))
@@ -1336,6 +1343,69 @@ namespace API_healthyMind.Controllers
             _uow.Citas.Actualizar(regEncontrado);
             await _uow.SaveChangesAsync();
             return Ok("Se ha eliminado correctamente ");
+        }
+
+        /// <summary>
+        /// Endpoint de diagnóstico: envía una notificación push de prueba al psicólogo indicado
+        /// y devuelve el resultado detallado (éxito, fallo HTTP, excepción, config faltante).
+        /// Solo accesible para Administradores.
+        /// </summary>
+        [Authorize(Policy = "SoloAdministrador")]
+        [HttpGet("test-push/{psicologoId}")]
+        public async Task<IActionResult> TestPush(int psicologoId)
+        {
+            if (psicologoId <= 0)
+                return BadRequest("psicologoId debe ser mayor que 0.");
+
+            var baseUrl = (_configuration["Chat:NotifyBaseUrl"] ?? "").Trim();
+            var secretPresent = !string.IsNullOrWhiteSpace(
+                _configuration["Chat:InternalNotifySecret"]
+                ?? Environment.GetEnvironmentVariable("CHAT_INTERNAL_NOTIFY_SECRET"));
+
+            var diagnostics = new
+            {
+                chatNotifyBaseUrl = string.IsNullOrWhiteSpace(baseUrl) ? "(NO CONFIGURADO)" : baseUrl,
+                internalNotifySecretPresent = secretPresent,
+                targetRoom = $"Psicologo_{psicologoId}",
+                timestamp = DateTime.UtcNow
+            };
+
+            if (string.IsNullOrWhiteSpace(baseUrl) || !secretPresent)
+            {
+                return Ok(new
+                {
+                    resultado = "OMITIDO",
+                    motivo = "Chat:NotifyBaseUrl o Chat:InternalNotifySecret no están configurados en la API.",
+                    diagnostics
+                });
+            }
+
+            try
+            {
+                await _chatPush.NotifyPsychologistAsync(
+                    psicologoId,
+                    "TEST_PUSH",
+                    "Notificación de prueba",
+                    $"Push de diagnóstico enviado a Psicologo_{psicologoId} a las {DateTime.UtcNow:HH:mm:ss} UTC.",
+                    cancellationToken: HttpContext.RequestAborted);
+
+                return Ok(new
+                {
+                    resultado = "ENVIADO",
+                    motivo = "El push se ejecutó sin excepciones. Revisa la consola del navegador del psicólogo (F12 → [HM-Notif]) y los logs del Chat en Render.",
+                    diagnostics
+                });
+            }
+            catch (Exception ex)
+            {
+                return Ok(new
+                {
+                    resultado = "EXCEPCION",
+                    motivo = ex.Message,
+                    innerException = ex.InnerException?.Message,
+                    diagnostics
+                });
+            }
         }
 
 
