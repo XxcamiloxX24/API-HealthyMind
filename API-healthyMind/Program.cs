@@ -125,6 +125,11 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 )
 );
 
+builder.Services.AddHttpClient<IChatPushService, ChatPushService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+
 var app = builder.Build();
 
 app.UseCors("CorsPolicy");

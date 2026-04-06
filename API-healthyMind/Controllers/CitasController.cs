@@ -3,10 +3,13 @@ using API_healthyMind.Models;
 using API_healthyMind.Models.DTO;
 using API_healthyMind.Models.DTO.Filtros;
 using API_healthyMind.Repositorios.Interfaces;
+using API_healthyMind.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Net;
 using System.Security.Claims;
+using System.Text;
 
 using static API_healthyMind.Controllers.AprendizController;
 namespace API_healthyMind.Controllers
@@ -18,12 +21,20 @@ namespace API_healthyMind.Controllers
     {
         private readonly IUnidadDeTrabajo _uow;
         private readonly IEmailService _emailService;
+        private readonly IChatPushService _chatPush;
+        private readonly IConfiguration _configuration;
 
 
-        public CitasController(IUnidadDeTrabajo uow, IEmailService emailService)
+        public CitasController(
+            IUnidadDeTrabajo uow,
+            IEmailService emailService,
+            IChatPushService chatPush,
+            IConfiguration configuration)
         {
             _uow = uow;
             _emailService = emailService;
+            _chatPush = chatPush;
+            _configuration = configuration;
         }
 
         private const string EstadoPendiente = "pendiente";
@@ -1064,16 +1075,43 @@ namespace API_healthyMind.Controllers
             await _uow.SaveChangesAsync();
 
             var mensaje = "Se ha solicitado una cita correctamente";
+            var nombreCompleto = $"{datosAprendiz.Aprendiz.AprNombre} {datosAprendiz.Aprendiz.AprApellido}".Trim();
+            if (string.IsNullOrWhiteSpace(nombreCompleto))
+                nombreCompleto = "Un aprendiz";
 
-            try
+            var notifTitle = "Nueva solicitud de cita";
+            var notifMessage =
+                $"{nombreCompleto} — Ficha {datosAprendiz.Ficha.FicCodigo}. Tipo: {dto.TipoCita.Trim()}.";
+
+            await _chatPush.NotifyPsychologistAsync(
+                psicologoAsignado.PsiCodigo,
+                "CITA_SOLICITADA",
+                notifTitle,
+                notifMessage,
+                soli.CitCodigo);
+
+            var correoInstitucional = psicologoAsignado.PsiCorreoInstitucional?.Trim();
+            if (!string.IsNullOrEmpty(correoInstitucional))
             {
-                await _emailService.SendAsync(psicologoAsignado.PsiCorreoInstitucional,
-                    "Nueva solicitud de cita - Healthy Mind",
-                    $"El aprendiz {datosAprendiz.Aprendiz.AprNombre} {datosAprendiz.Aprendiz.AprApellido} de la ficha Nro {datosAprendiz.Ficha.FicCodigo} ha solicitado una cita.");
-            }
-            catch
-            {
-                mensaje = "La solicitud se creó correctamente, pero no se pudo enviar la notificación al psicólogo.";
+                try
+                {
+                    var html = BuildSolicitudCitaEmailHtml(
+                        nombreCompleto,
+                        datosAprendiz.Ficha.FicCodigo,
+                        dto.TipoCita.Trim(),
+                        dto.MotivoSolicitud.Trim(),
+                        soli.CitCodigo,
+                        soli.CitFechaCreacion ?? DateTime.UtcNow);
+                    await _emailService.SendAsync(
+                        correoInstitucional,
+                        "[Healthy Mind] Nueva solicitud de cita",
+                        html,
+                        isHtml: true);
+                }
+                catch
+                {
+                    mensaje = "La solicitud se creó correctamente, pero no se pudo enviar el correo al psicólogo. Revisa la configuración SMTP o el buzón institucional.";
+                }
             }
 
             return Ok(new
@@ -1085,6 +1123,43 @@ namespace API_healthyMind.Controllers
             });
 
 
+        }
+
+        private string BuildSolicitudCitaEmailHtml(
+            string nombreAprendiz,
+            int fichaCodigo,
+            string tipoCita,
+            string motivoSolicitud,
+            int citaCodigo,
+            DateTime fechaUtc)
+        {
+            var esc = new Func<string?, string>(s => WebUtility.HtmlEncode(s ?? ""));
+            var portal = (_configuration["App:PsychologistPortalUrl"] ?? "").Trim();
+            var linkBlock = new StringBuilder();
+            if (!string.IsNullOrEmpty(portal))
+            {
+                var safeUrl = esc(portal);
+                linkBlock.Append(
+                    $"<p style=\"margin:16px 0 0 0;\"><a href=\"{safeUrl}\" style=\"color:#5b21b6;font-weight:600;\">Abrir panel de citas en Healthy Mind</a></p>");
+            }
+
+            var fechaLocal = fechaUtc.ToString("yyyy-MM-dd HH:mm") + " UTC";
+            return $@"<!DOCTYPE html><html><head><meta charset=""utf-8"" /></head>
+<body style=""font-family:Segoe UI,Roboto,sans-serif;font-size:15px;color:#1e293b;line-height:1.5;"">
+<p>Hola,</p>
+<p><strong>{esc(nombreAprendiz)}</strong> ha enviado una <strong>nueva solicitud de cita</strong> en la plataforma Healthy Mind.</p>
+<table style=""border-collapse:collapse;margin:12px 0;"" cellpadding=""0"" cellspacing=""0"">
+<tr><td style=""padding:4px 12px 4px 0;color:#64748b;"">Ficha</td><td><strong>#{fichaCodigo}</strong></td></tr>
+<tr><td style=""padding:4px 12px 4px 0;color:#64748b;"">Tipo solicitado</td><td><strong>{esc(tipoCita)}</strong></td></tr>
+<tr><td style=""padding:4px 12px 4px 0;color:#64748b;vertical-align:top;"">Motivo</td><td>{esc(motivoSolicitud)}</td></tr>
+<tr><td style=""padding:4px 12px 4px 0;color:#64748b;"">Nº solicitud</td><td><strong>{citaCodigo}</strong></td></tr>
+<tr><td style=""padding:4px 12px 4px 0;color:#64748b;"">Registrada</td><td>{esc(fechaLocal)}</td></tr>
+</table>
+<p style=""margin-top:16px;color:#64748b;font-size:13px;"">Gestiona esta solicitud en <strong>Solicitudes pendientes</strong> dentro de Citas.</p>
+{linkBlock}
+<hr style=""border:none;border-top:1px solid #e2e8f0;margin:24px 0;"" />
+<p style=""font-size:12px;color:#94a3b8;"">Mensaje automático. No respondas a este correo.</p>
+</body></html>";
         }
 
         [Authorize(Roles = Roles.Aprendiz)]

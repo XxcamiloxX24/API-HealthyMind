@@ -15,7 +15,7 @@ namespace API_healthyMind.Services
             _config = config;
         }
 
-        public async Task SendAsync(string to, string subject, string body)
+        public async Task SendAsync(string to, string subject, string body, bool isHtml = false)
         {
             try
             {
@@ -30,7 +30,10 @@ namespace API_healthyMind.Services
                     Timeout = 5000
                 };
 
-                var mail = new MailMessage(_config["Email:User"], to, subject, body);
+                var mail = new MailMessage(_config["Email:User"], to, subject, body)
+                {
+                    IsBodyHtml = isHtml
+                };
 
                 await smtp.SendMailAsync(mail);
             }
