@@ -339,11 +339,33 @@ namespace API_healthyMind.Controllers
         }
 
 
+        /// <summary>
+        /// Registros por mes; año con query <c>?anio=2025</c> (compatible con IIS/proxies). Sin año = año actual del servidor.
+        /// </summary>
         [Authorize(Policy = "AdministradorYPsicologo")]
         [HttpGet("estadistica/por-mes")]
-        public async Task<IActionResult> GetRegistrosPorMes()
+        public Task<IActionResult> GetRegistrosPorMesPorQuery([FromQuery(Name = "anio")] int? anio = null)
+            => RegistrosPorMesPorAnioAsync(anio ?? DateTime.Now.Year);
+
+        /// <summary>
+        /// Misma lógica con año en la ruta: <c>.../por-mes/2025</c>.
+        /// </summary>
+        [Authorize(Policy = "AdministradorYPsicologo")]
+        [HttpGet("estadistica/por-mes/{anio:int}")]
+        public Task<IActionResult> GetRegistrosPorMesPorRuta([FromRoute] int anio)
+            => RegistrosPorMesPorAnioAsync(anio);
+
+        private async Task<IActionResult> RegistrosPorMesPorAnioAsync(int añoFiltro)
         {
+            var añoMax = DateTime.Now.Year + 1;
+            if (añoFiltro < 2000 || añoFiltro > añoMax)
+                return BadRequest("El año solicitado no es válido.");
+
+            var inicio = new DateTime(añoFiltro, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
+            var finExclusivo = new DateTime(añoFiltro + 1, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
+
             var resultado = await _uow.Aprendiz.Query()
+                .Where(x => x.AprFechaCreacion >= inicio && x.AprFechaCreacion < finExclusivo)
                 .GroupBy(x => x.AprFechaCreacion.Month)
                 .Select(g => new
                 {
@@ -353,7 +375,37 @@ namespace API_healthyMind.Controllers
                 .OrderBy(x => x.Mes)
                 .ToListAsync();
 
-            return Ok(resultado);
+            return Ok(new
+            {
+                anioAplicado = añoFiltro,
+                datos = resultado
+            });
+        }
+
+        /// <summary>
+        /// Años con al menos un aprendiz (por fecha de registro), más el <b>año calendario actual</b> si aún no hay altas en ese año.
+        /// Así el panel puede elegir siempre el año en curso aunque la BD solo tenga datos del año anterior.
+        /// </summary>
+        [Authorize(Policy = "AdministradorYPsicologo")]
+        [HttpGet("estadistica/anios-registro-aprendices")]
+        public async Task<IActionResult> GetAniosConRegistroAprendices()
+        {
+            var añoActual = DateTime.Now.Year;
+
+            var años = await _uow.Aprendiz.Query()
+                .Select(a => a.AprFechaCreacion.Year)
+                .Distinct()
+                .ToListAsync();
+
+            if (!años.Contains(añoActual))
+                años.Add(añoActual);
+
+            años.Sort((a, b) => b.CompareTo(a));
+
+            if (años.Count == 0)
+                años.Add(añoActual);
+
+            return Ok(new { anios = años });
         }
 
         [AllowAnonymous]
