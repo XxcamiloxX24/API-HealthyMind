@@ -37,6 +37,7 @@ namespace API_healthyMind.Data
         public IPlantillaPreguntaRepository PlantillaPregunta { get; }
         public IPlantillaOpcionRepository PlantillaOpcion { get; }
         public ITestRespuestaRepository TestRespuesta { get; }
+        public IAlertaRachaEmocionalRepository AlertaRachaEmocional { get; }
 
         public UnidadDeTrabajo(AppDbContext appDbContext, IAprendizFichaRepository aprendizFicha,
             ICardsInfoRepository cardsInfo,
@@ -67,7 +68,8 @@ namespace API_healthyMind.Data
             IPlantillaTestRepository plantillaTest,
             IPlantillaPreguntaRepository plantillaPregunta,
             IPlantillaOpcionRepository plantillaOpcion,
-            ITestRespuestaRepository testRespuesta)
+            ITestRespuestaRepository testRespuesta,
+            IAlertaRachaEmocionalRepository alertaRachaEmocional)
         {
             _appDbContext = appDbContext;
             CardsInfo = cardsInfo;
@@ -100,6 +102,7 @@ namespace API_healthyMind.Data
             PlantillaPregunta = plantillaPregunta;
             PlantillaOpcion = plantillaOpcion;
             TestRespuesta = testRespuesta;
+            AlertaRachaEmocional = alertaRachaEmocional;
         }
 
         public void Dispose() => _appDbContext.Dispose();

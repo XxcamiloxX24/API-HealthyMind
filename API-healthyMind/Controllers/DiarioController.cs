@@ -134,6 +134,37 @@ namespace API_healthyMind.Controllers
         }
         
 
+        /// <summary>
+        /// Devuelve el diario activo de un aprendiz dado su apr_codigo.
+        /// Incluye el total de días con entradas para mostrar indicadores de actividad.
+        /// </summary>
+        [HttpGet("por-aprendiz/{aprendizId:int}")]
+        [Authorize(Policy = "AdministradorYPsicologo")]
+        public async Task<IActionResult> ObtenerPorAprendiz(int aprendizId)
+        {
+            var diario = await _uow.Diario.Query()
+                .AsNoTracking()
+                .Where(d => d.DiaAprendizFk == aprendizId && d.DiaEstadoRegistro == "activo")
+                .Select(d => new
+                {
+                    d.DiaCodigo,
+                    d.DiaTitulo,
+                    d.DiaFechaCreacion,
+                    totalPaginas = d.PaginaDiarios.Count(p => p.PagEstadoRegistro == "activo"),
+                    fechaUltimaEntrada = d.PaginaDiarios
+                        .Where(p => p.PagEstadoRegistro == "activo")
+                        .OrderByDescending(p => p.PagFechaRealizacion)
+                        .Select(p => (DateTime?)p.PagFechaRealizacion)
+                        .FirstOrDefault()
+                })
+                .FirstOrDefaultAsync();
+
+            if (diario == null)
+                return NotFound("Este aprendiz no tiene un diario activo.");
+
+            return Ok(diario);
+        }
+
         [HttpGet("buscar")]
         public async Task<IActionResult> Buscar([FromQuery] FiltroDiarioDTO f)
         {

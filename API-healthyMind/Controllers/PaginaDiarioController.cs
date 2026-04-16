@@ -3,6 +3,7 @@ using API_healthyMind.Models;
 using API_healthyMind.Models.DTO;
 using API_healthyMind.Models.DTO.Filtros;
 using API_healthyMind.Repositorios.Interfaces;
+using API_healthyMind.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -20,13 +21,12 @@ namespace API_healthyMind.Controllers
     public class PaginaDiarioController : ControllerBase
     {
         private readonly IUnidadDeTrabajo _uow;
-        
+        private readonly IEmotionalStreakEvaluator _streakEvaluator;
 
-
-        public PaginaDiarioController(IUnidadDeTrabajo uow)
+        public PaginaDiarioController(IUnidadDeTrabajo uow, IEmotionalStreakEvaluator streakEvaluator)
         {
             _uow = uow;
-            
+            _streakEvaluator = streakEvaluator;
         }
 
         private static object MapearAprendiz(Aprendiz d)
@@ -199,47 +199,53 @@ namespace API_healthyMind.Controllers
         [HttpGet("paginacion-por-fecha")]
         public async Task<IActionResult> ObtenerPaginacionPorFecha(int diarioId, DateOnly? fecha = null)
         {
-            var registros = await _uow.PaginaDiario.Query()
-                .Where(x => x.PagEstadoRegistro == "activo" && x.PagDiarioFk == diarioId)
-                .Include(x => x.PagDiarioFkNavigation)
-                    .ThenInclude(d => d.aprendiz)
-                .Include(x => x.PagEmocionFkNavigation)
+            var baseQuery = _uow.PaginaDiario.Query()
+                .Where(x => x.PagEstadoRegistro == "activo" && x.PagDiarioFk == diarioId);
+
+            var fechasOrdenadas = await baseQuery
+                .Select(x => x.PagFechaRealizacion.Date)
+                .Distinct()
+                .OrderByDescending(d => d)
                 .ToListAsync();
 
-            var grupos = registros
-                .GroupBy(x => x.PagFechaRealizacion.Date)
-                .OrderByDescending(g => g.Key)
-                .ToList();
-
-            if (!grupos.Any())
+            if (!fechasOrdenadas.Any())
                 return NotFound("No hay registros para este diario.");
 
             int index;
             if (fecha.HasValue)
             {
                 var fechaBuscada = fecha.Value.ToDateTime(TimeOnly.MinValue);
-                index = grupos.FindIndex(g => g.Key == fechaBuscada);
+                index = fechasOrdenadas.FindIndex(d => d == fechaBuscada);
                 if (index == -1)
                     return NotFound("No existen registros para la fecha indicada.");
             }
             else
                 index = 0;
 
-            var grupoSeleccionado = grupos[index];
-            var datos = grupoSeleccionado.Select(MapearPaginaDiario).ToList();
+            var diaSeleccionado = fechasOrdenadas[index];
+            var siguienteDia = diaSeleccionado.AddDays(1);
 
-            var fechasOrdenadas = grupos.Select(g => DateOnly.FromDateTime(g.Key)).ToList();
+            var paginas = await baseQuery
+                .Where(x => x.PagFechaRealizacion >= diaSeleccionado && x.PagFechaRealizacion < siguienteDia)
+                .Include(x => x.PagDiarioFkNavigation)
+                    .ThenInclude(d => d.aprendiz)
+                .Include(x => x.PagEmocionFkNavigation)
+                .OrderBy(x => x.PagFechaRealizacion)
+                .ToListAsync();
+
+            var datos = paginas.Select(MapearPaginaDiario).ToList();
+            var fechasDateOnly = fechasOrdenadas.Select(d => DateOnly.FromDateTime(d)).ToList();
 
             return Ok(new
             {
                 diarioId,
-                fechaCorrespondiente = DateOnly.FromDateTime(grupoSeleccionado.Key),
+                fechaCorrespondiente = DateOnly.FromDateTime(diaSeleccionado),
                 totalRegistrosEnFecha = datos.Count,
-                totalDiasConEntradas = grupos.Count,
+                totalDiasConEntradas = fechasOrdenadas.Count,
                 indiceDia = index,
-                fechaMasNuevaConEntradas = index > 0 ? fechasOrdenadas[index - 1] : (DateOnly?)null,
-                fechaMasAntiguaConEntradas = index < grupos.Count - 1 ? fechasOrdenadas[index + 1] : (DateOnly?)null,
-                fechasConEntradas = fechasOrdenadas,
+                fechaMasNuevaConEntradas = index > 0 ? fechasDateOnly[index - 1] : (DateOnly?)null,
+                fechaMasAntiguaConEntradas = index < fechasOrdenadas.Count - 1 ? fechasDateOnly[index + 1] : (DateOnly?)null,
+                fechasConEntradas = fechasDateOnly,
                 datos
             });
         }
@@ -264,6 +270,13 @@ namespace API_healthyMind.Controllers
 
             await _uow.PaginaDiario.Agregar(nuevoReg);
             await _uow.SaveChangesAsync();
+
+            if (dto.PagEmocionFk != null && dto.PagDiarioFk != null)
+            {
+                var diario = await _uow.Diario.ObtenerPrimero(d => d.DiaCodigo == dto.PagDiarioFk);
+                if (diario != null)
+                    await _streakEvaluator.EvaluarYNotificarAsync(diario.DiaAprendizFk);
+            }
 
             var datos = await _uow.PaginaDiario.ObtenerTodoConCondicion(e => e.PagCodigo == nuevoReg.PagCodigo,
                 e => e
@@ -312,6 +325,9 @@ namespace API_healthyMind.Controllers
             _uow.PaginaDiario.Actualizar(resultado);
             await _uow.SaveChangesAsync();
 
+            if (dto.PagEmocionFk != null && resultado.PagDiarioFkNavigation != null)
+                await _streakEvaluator.EvaluarYNotificarAsync(resultado.PagDiarioFkNavigation.DiaAprendizFk);
+
             return Ok(new
             {
                 mensaje = "Se han editado correctamente los datos!",
@@ -321,32 +337,36 @@ namespace API_healthyMind.Controllers
 
 
         /// <summary>
-        /// Soft delete del diario (cambia estado a inactivo). Aprendiz: solo su propio diario. Admin/Psicólogo: cualquiera.
+        /// Soft delete de una página del diario (cambia PagEstadoRegistro a inactivo).
+        /// Aprendiz: solo páginas de su propio diario. Admin/Psicólogo: cualquiera.
         /// </summary>
         [HttpPut("eliminar/{id}")]
-        public async Task<IActionResult> EliminarDiario(int id)
+        public async Task<IActionResult> EliminarPagina(int id)
         {
-            var diarioEncontrado = await _uow.Diario.ObtenerTodoConCondicion(a => a.DiaCodigo == id && a.DiaEstadoRegistro == "activo",
-                a => a.Include(d => d.aprendiz));
+            var paginas = await _uow.PaginaDiario.ObtenerTodoConCondicion(
+                p => p.PagCodigo == id && p.PagEstadoRegistro == "activo",
+                q => q.Include(p => p.PagDiarioFkNavigation)
+                        .ThenInclude(d => d.aprendiz));
 
-            var diario = diarioEncontrado.FirstOrDefault();
+            var pagina = paginas.FirstOrDefault();
 
-            if (diario == null)
-                return NotFound("No se encontró este id.");
+            if (pagina == null)
+                return NotFound("No se encontró esta página.");
 
             if (User.IsInRole(Models.Roles.Aprendiz))
             {
                 var miId = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier)
                     ?? User.FindFirstValue("nameid");
-                if (string.IsNullOrEmpty(miId) || diario.DiaAprendizFk.ToString() != miId)
-                    return StatusCode(403, "Solo puedes eliminar tu propio diario.");
+                var duenoId = pagina.PagDiarioFkNavigation?.DiaAprendizFk.ToString();
+                if (string.IsNullOrEmpty(miId) || duenoId != miId)
+                    return StatusCode(403, "Solo puedes eliminar páginas de tu propio diario.");
             }
 
-            diario.DiaEstadoRegistro = "inactivo";
+            pagina.PagEstadoRegistro = "inactivo";
 
-            _uow.Diario.Actualizar(diario);
+            _uow.PaginaDiario.Actualizar(pagina);
             await _uow.SaveChangesAsync();
-            return Ok("Se ha eliminado correctamente ");
+            return Ok("Se ha eliminado la página correctamente.");
         }
 
         // ──────────────────────────────────────────────────

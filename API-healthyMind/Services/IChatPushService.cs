@@ -14,5 +14,7 @@ public interface IChatPushService
         string title,
         string message,
         int? appointmentId = null,
+        int? seguimientoId = null,
+        string? deepLink = null,
         CancellationToken cancellationToken = default);
 }

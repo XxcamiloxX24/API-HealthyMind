@@ -34,6 +34,7 @@ namespace API_healthyMind.Data
         IPlantillaPreguntaRepository PlantillaPregunta { get; }
         IPlantillaOpcionRepository PlantillaOpcion { get; }
         ITestRespuestaRepository TestRespuesta { get; }
+        IAlertaRachaEmocionalRepository AlertaRachaEmocional { get; }
         AppDbContext ObtenerContexto();
         Task<int> SaveChangesAsync();
 

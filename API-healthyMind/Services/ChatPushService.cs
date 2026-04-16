@@ -24,6 +24,8 @@ public class ChatPushService : IChatPushService
         string title,
         string message,
         int? appointmentId = null,
+        int? seguimientoId = null,
+        string? deepLink = null,
         CancellationToken cancellationToken = default)
     {
         var baseUrl = (_config["Chat:NotifyBaseUrl"] ?? "").Trim().TrimEnd('/');
@@ -45,7 +47,9 @@ public class ChatPushService : IChatPushService
             Type = notificationType,
             Title = title,
             Message = message,
-            AppointmentId = appointmentId
+            AppointmentId = appointmentId,
+            SeguimientoId = seguimientoId,
+            DeepLink = deepLink
         };
 
         for (int attempt = 0; attempt <= MaxRetries; attempt++)
@@ -115,5 +119,11 @@ public class ChatPushService : IChatPushService
 
         [JsonPropertyName("appointmentId")]
         public int? AppointmentId { get; set; }
+
+        [JsonPropertyName("seguimientoId")]
+        public int? SeguimientoId { get; set; }
+
+        [JsonPropertyName("deepLink")]
+        public string? DeepLink { get; set; }
     }
 }

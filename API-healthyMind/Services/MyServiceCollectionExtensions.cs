@@ -39,6 +39,8 @@ namespace API_healthyMind.Services
             services.AddScoped<IPlantillaPreguntaRepository, PlantillaPreguntaRepository>();
             services.AddScoped<IPlantillaOpcionRepository, PlantillaOpcionRepository>();
             services.AddScoped<ITestRespuestaRepository, TestRespuestaRepository>();
+            services.AddScoped<IAlertaRachaEmocionalRepository, AlertaRachaEmocionalRepository>();
+            services.AddScoped<IEmotionalStreakEvaluator, EmotionalStreakEvaluator>();
             services.AddScoped<IRefreshTokenService, RefreshTokenService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IUnidadDeTrabajo, UnidadDeTrabajo>();

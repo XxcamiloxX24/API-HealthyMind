@@ -79,7 +79,8 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<TestRespuesta> TestRespuestas { get; set; }
 
-    
+    public virtual DbSet<AlertaRachaEmocional> AlertasRachaEmocional { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder
@@ -1229,6 +1230,95 @@ public partial class AppDbContext : DbContext
                 .HasForeignKey(d => d.TesResOpcionFk)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("test_respuesta_ibfk_3");
+        });
+
+        modelBuilder.Entity<AlertaRachaEmocional>(entity =>
+        {
+            entity.HasKey(e => e.AreCodigo).HasName("PRIMARY");
+
+            entity.ToTable("alerta_racha_emocional");
+
+            entity.Property(e => e.AreCodigo)
+                .HasColumnType("int")
+                .HasColumnName("are_codigo");
+
+            entity.Property(e => e.AreAprendizFk)
+                .HasColumnType("int(40)")
+                .HasColumnName("are_aprendiz_fk");
+
+            entity.Property(e => e.ArePsicologoFk)
+                .HasColumnType("int(40)")
+                .HasColumnName("are_psicologo_fk");
+
+            entity.Property(e => e.AreSeguimientoFk)
+                .HasColumnType("int")
+                .HasColumnName("are_seguimiento_fk");
+
+            entity.Property(e => e.AreFechaReciente)
+                .HasColumnName("are_fecha_reciente");
+
+            entity.Property(e => e.AreRegla)
+                .HasColumnType("enum('CATEGORIA_NEG_CRIT','ESCALA_LE_5','AMBAS')")
+                .HasDefaultValueSql("'AMBAS'")
+                .HasColumnName("are_regla");
+
+            entity.Property(e => e.AreFechasJson)
+                .HasColumnType("json")
+                .HasColumnName("are_fechas_json");
+
+            entity.Property(e => e.AreEscalasJson)
+                .HasColumnType("json")
+                .HasColumnName("are_escalas_json");
+
+            entity.Property(e => e.AreMensaje)
+                .HasMaxLength(500)
+                .HasColumnName("are_mensaje");
+
+            entity.Property(e => e.AreEstado)
+                .HasColumnType("enum('nueva','leida','resuelta')")
+                .HasDefaultValueSql("'nueva'")
+                .HasColumnName("are_estado");
+
+            entity.Property(e => e.AreFechaCreacion)
+                .HasColumnType("datetime")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("are_fecha_creacion");
+
+            entity.Property(e => e.AreFechaLectura)
+                .HasColumnType("datetime")
+                .HasColumnName("are_fecha_lectura");
+
+            entity.Property(e => e.AreFechaResolucion)
+                .HasColumnType("datetime")
+                .HasColumnName("are_fecha_resolucion");
+
+            entity.Property(e => e.AreNotasResolucion)
+                .HasColumnType("text")
+                .HasColumnName("are_notas_resolucion");
+
+            entity.Property(e => e.AreEstadoRegistro)
+                .HasDefaultValueSql("'activo'")
+                .HasColumnType("enum('activo','inactivo')")
+                .HasColumnName("are_estado_registro");
+
+            entity.HasOne(d => d.AreAprendizFkNavigation).WithMany()
+                .HasForeignKey(d => d.AreAprendizFk)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("fk_are_aprendiz");
+
+            entity.HasOne(d => d.ArePsicologoFkNavigation).WithMany()
+                .HasForeignKey(d => d.ArePsicologoFk)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("fk_are_psicologo");
+
+            entity.HasOne(d => d.AreSeguimientoFkNavigation).WithMany()
+                .HasForeignKey(d => d.AreSeguimientoFk)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("fk_are_seguimiento");
+
+            entity.HasIndex(e => new { e.AreAprendizFk, e.ArePsicologoFk, e.AreFechaReciente })
+                .IsUnique()
+                .HasDatabaseName("uq_alerta_idempotencia");
         });
 
         OnModelCreatingPartial(modelBuilder);
