@@ -844,7 +844,8 @@ namespace API_healthyMind.Controllers
         }
 
         /// <summary>
-        /// Citas del psicólogo para iniciar conversación: cualquier estado excepto realizadas/completadas.
+        /// Citas del psicólogo para iniciar conversación: sólo modalidades no presenciales (chat/videollamada)
+        /// y excluyendo las ya realizadas o completadas, para que el psicólogo no abra un chat sobre una sesión cerrada.
         /// GET api/Citas/citas-para-nuevo-chat
         /// </summary>
         [Authorize(Roles = Roles.Psicologo)]
@@ -857,6 +858,7 @@ namespace API_healthyMind.Controllers
             }
 
             var estadosExcluidos = new[] { EstadoRealizada, "completada" };
+            var tiposNoPresenciales = new[] { "chat", "videollamada" };
 
             var datos = await _uow.Citas.Query()
                 .Include(c => c.CitAprCodFkNavigation)
@@ -877,7 +879,9 @@ namespace API_healthyMind.Controllers
                 .Where(c => c.CitEstadoRegistro == "activo" &&
                             c.CitPsiCodFk == psicologoId &&
                             c.CitEstadoCita != null &&
-                            !estadosExcluidos.Contains(c.CitEstadoCita.Trim().ToLower()))
+                            !estadosExcluidos.Contains(c.CitEstadoCita.Trim().ToLower()) &&
+                            c.CitTipoCita != null &&
+                            tiposNoPresenciales.Contains(c.CitTipoCita.Trim().ToLower()))
                 .OrderByDescending(c => c.CitFechaCreacion)
                 .ToListAsync();
 
