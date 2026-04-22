@@ -1,7 +1,5 @@
 using API_healthyMind.Data;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API_healthyMind.Controllers
@@ -17,14 +15,12 @@ namespace API_healthyMind.Controllers
         {
             _uow = uow;
         }
-        // GET: NivelFormacionController
+
         [HttpGet]
         public async Task<IActionResult> ObtenerTodos()
         {
             var datos = await _uow.Regional.ObtenerTodos();
             return Ok(datos);
         }
-
-       
     }
 }

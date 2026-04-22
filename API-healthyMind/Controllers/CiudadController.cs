@@ -9,7 +9,7 @@ namespace API_healthyMind.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Policy = "AdministradorYPsicologo")]
+    [Authorize(Policy = "CualquierRol")]
     public class CiudadController : ControllerBase
     {
         private readonly IUnidadDeTrabajo _uow;

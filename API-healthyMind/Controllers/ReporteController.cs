@@ -1,6 +1,7 @@
 using API_healthyMind.Data;
 using API_healthyMind.Models;
 using API_healthyMind.Models.DTO;
+using API_healthyMind.Repositorios.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,13 +16,23 @@ namespace API_healthyMind.Controllers;
 public class ReporteController : ControllerBase
 {
     private readonly IUnidadDeTrabajo _uow;
+    private readonly IEmailService _emailService;
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<ReporteController> _logger;
 
     private static readonly string[] EstadosValidos = { "creado", "proceso", "resuelto", "cerrado" };
     private static readonly string[] PrioridadesValidas = { "baja", "media", "alta", "critica" };
 
-    public ReporteController(IUnidadDeTrabajo uow)
+    public ReporteController(
+        IUnidadDeTrabajo uow,
+        IEmailService emailService,
+        IConfiguration configuration,
+        ILogger<ReporteController> logger)
     {
         _uow = uow;
+        _emailService = emailService;
+        _configuration = configuration;
+        _logger = logger;
     }
 
     private string? ObtenerIdUsuarioAutenticado() =>
@@ -221,7 +232,112 @@ public class ReporteController : ControllerBase
             .Include(r => r.ReporteHistorials)
             .FirstOrDefaultAsync(r => r.RepCodigo == reporte.RepCodigo);
 
+        _ = NotificarAdministradoresAsync(creado!);
+
         return CreatedAtAction(nameof(ObtenerPorId), new { id = reporte.RepCodigo }, MapearAResponse(creado!));
+    }
+
+    /// <summary>
+    /// Envío de correo a los administradores tras la creación del reporte.
+    /// Corre en background y nunca propaga excepciones para no afectar al cliente.
+    /// </summary>
+    private async Task NotificarAdministradoresAsync(Reporte reporte)
+    {
+        try
+        {
+            var destinos = ObtenerCorreosAdmin();
+            if (destinos.Count == 0)
+            {
+                _logger.LogInformation("No hay correos de administrador configurados; se omite notificación del reporte {Id}.", reporte.RepCodigo);
+                return;
+            }
+
+            var (usuario, correoReportador) = ObtenerDatosReportador(reporte);
+            var asunto = $"[Healthy Mind] Nuevo reporte #{reporte.RepCodigo} — {reporte.RepTitulo}";
+            var cuerpo = ConstruirCuerpoCorreo(reporte, usuario, correoReportador);
+
+            foreach (var destino in destinos)
+            {
+                try
+                {
+                    await _emailService.SendAsync(destino, asunto, cuerpo, isHtml: true);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Fallo enviando correo de reporte {Id} a {Destino}.", reporte.RepCodigo, destino);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Fallo general notificando reporte {Id} a administradores.", reporte.RepCodigo);
+        }
+    }
+
+    private List<string> ObtenerCorreosAdmin()
+    {
+        var lista = new List<string>();
+
+        var configurados = _configuration["Reportes:AdminNotifyEmails"];
+        if (!string.IsNullOrWhiteSpace(configurados))
+        {
+            foreach (var item in configurados.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (!string.IsNullOrWhiteSpace(item) && !lista.Contains(item, StringComparer.OrdinalIgnoreCase))
+                    lista.Add(item);
+            }
+        }
+
+        var adminEmail = _configuration["settings:adminEmail"];
+        if (!string.IsNullOrWhiteSpace(adminEmail) && !lista.Contains(adminEmail, StringComparer.OrdinalIgnoreCase))
+            lista.Add(adminEmail);
+
+        return lista;
+    }
+
+    private static (string Usuario, string Correo) ObtenerDatosReportador(Reporte r)
+    {
+        if (r.RepTipoReportador == "Aprendiz" && r.RepAprendizFkNavigation != null)
+        {
+            var a = r.RepAprendizFkNavigation;
+            var nombre = $"{a.AprNombre} {a.AprApellido}".Trim();
+            var correo = a.AprCorreoPersonal ?? a.AprCorreoInstitucional ?? "";
+            return (nombre, correo);
+        }
+        if (r.RepTipoReportador == "Psicologo" && r.RepPsicologoFkNavigation != null)
+        {
+            var p = r.RepPsicologoFkNavigation;
+            var nombre = $"{p.PsiNombre} {p.PsiApellido}".Trim();
+            var correo = p.PsiCorreoPersonal ?? p.PsiCorreoInstitucional ?? "";
+            return (nombre, correo);
+        }
+        return ("", "");
+    }
+
+    private static string ConstruirCuerpoCorreo(Reporte r, string usuario, string correoReportador)
+    {
+        var descripcionHtml = System.Net.WebUtility.HtmlEncode(r.RepDescripcion).Replace("\n", "<br>");
+        var tituloHtml = System.Net.WebUtility.HtmlEncode(r.RepTitulo);
+        var usuarioHtml = System.Net.WebUtility.HtmlEncode(usuario);
+        var correoHtml = System.Net.WebUtility.HtmlEncode(correoReportador);
+        var categoriaHtml = System.Net.WebUtility.HtmlEncode(r.RepCategoria);
+
+        return $@"
+            <div style=""font-family:Segoe UI,Arial,sans-serif;color:#1e293b;max-width:640px;"">
+                <h2 style=""margin-bottom:8px;"">Nuevo reporte en Healthy Mind</h2>
+                <p style=""margin-top:0;color:#475569;"">Se registró un nuevo reporte que requiere gestión.</p>
+                <table style=""border-collapse:collapse;margin:16px 0;width:100%;"">
+                    <tr><td style=""padding:6px 8px;color:#64748b;"">ID</td><td style=""padding:6px 8px;""><strong>#{r.RepCodigo}</strong></td></tr>
+                    <tr><td style=""padding:6px 8px;color:#64748b;"">Título</td><td style=""padding:6px 8px;"">{tituloHtml}</td></tr>
+                    <tr><td style=""padding:6px 8px;color:#64748b;"">Categoría</td><td style=""padding:6px 8px;"">{categoriaHtml}</td></tr>
+                    <tr><td style=""padding:6px 8px;color:#64748b;"">Prioridad</td><td style=""padding:6px 8px;"">{r.RepPrioridad}</td></tr>
+                    <tr><td style=""padding:6px 8px;color:#64748b;"">Reportador</td><td style=""padding:6px 8px;"">{r.RepTipoReportador} — {usuarioHtml} ({correoHtml})</td></tr>
+                    <tr><td style=""padding:6px 8px;color:#64748b;"">Fecha</td><td style=""padding:6px 8px;"">{r.RepFechaCreacion:dd/MM/yyyy HH:mm}</td></tr>
+                </table>
+                <p style=""margin-bottom:4px;""><strong>Descripción</strong></p>
+                <div style=""padding:12px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;"">{descripcionHtml}</div>
+                <p style=""margin-top:20px;color:#64748b;font-size:12px;"">Ingresa al panel de administración para gestionar este reporte.</p>
+            </div>";
     }
 
     /// <summary>Cambia el estado del reporte. Solo Administrador o Psicólogo.</summary>
